@@ -42,10 +42,10 @@ public class BookController {
         }
 
         if (ISBN > root.b.ISBN) {
-            return search_for_book(root.right, ISBN);
+            return search_for_book(root.left, ISBN);
         }
 
-        return search_for_book(root.left, ISBN);
+        return search_for_book(root.right, ISBN);
     }
 
     // Get inorder successor (smallest in right subtree)
@@ -84,4 +84,11 @@ public class BookController {
         return root;
     }
 
+    public void print(Node root){
+        if(root == null)
+            return;
+        System.out.println(root.b.ISBN);
+        print(root.left);
+        print(root.right);
+    }
 }
