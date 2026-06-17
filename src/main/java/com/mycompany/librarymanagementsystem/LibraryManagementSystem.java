@@ -1,16 +1,21 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- */
-
 package com.mycompany.librarymanagementsystem;
 
-/**
- *
- * @author USER
- */
+import java.util.*;
 public class LibraryManagementSystem {
 
     public static void main(String[] args) {
-        System.out.println("Hello World!");
+       BookController bc = new BookController();
+       Book b1 = new Book(100);
+       Book b2 = new Book(1000);
+       Book b3 = new Book(10000);
+       Node n = bc.add_book_to_library(null,b1);
+       n = bc.add_book_to_library(n, b3);
+       System.out.println(bc.search_for_book(n, 100));
+       n = bc.add_book_to_library(n, b2);
+       System.out.println(bc.search_for_book(n, 1000));
+       n = bc.delNode(n, 100);
+       System.out.println(bc.search_for_book(n, 100));
     }
+    
+    
 }
