@@ -1,37 +1,44 @@
 package com.mycompany.librarymanagementsystem;
 
-class Node{
-    Book b;
-    Node left;
-    Node right;
-    int height;
-    Node(Book b){
-        this.b = b;
-        left = right = null;
-        height = 1;
-    }
-}
-
 public class BookController {
-    // Add a book to the library
+    static BookNode root=null;
 
-    public Node add_book_to_library(Node root, Book b) {
+    public static void add_book(int ISBN) {
+        root = add_book_to_bst(root, ISBN);
+    }
+    public static BookNode search_for_book(int ISBN) {
+        return search_for_book_bst(root, ISBN);
+    }
+    public static void delete_book(int ISBN) {
+        root = delNode(root, ISBN);
+    }
+    public static void print(){
+        print(root);
+    }
+    
+    private static void print(BookNode root){
+        if(root == null)
+            return;
+        print(root.left);
+        System.out.println(root.b.ISBN);
+        print(root.right);
+    }
+    private static BookNode add_book_to_bst(BookNode root, int ISBN) {
         // root is the first book added to library, ISBN stands for International Standard Book Number, the ISBN of the book we want to add
         if (root == null) {
             // if there are currently no books we should add a book to the library
-            return new Node(b);
+            return new BookNode(new Book(ISBN));
         }
-        if (root.b.ISBN < b.ISBN) {
-            root.left = add_book_to_library(root.left, b);
-        } else if (root.b.ISBN > b.ISBN) {
-            root.right = add_book_to_library(root.right, b);
+        if (root.b.ISBN < ISBN) {
+            root.right = add_book_to_bst(root.right, ISBN);
+        } else if (root.b.ISBN > ISBN) {
+            root.left = add_book_to_bst(root.left, ISBN);
         } else {
             root.b.counter++;
         }
         return root;
     }
-
-    public Node search_for_book(Node root, int ISBN) {
+    private static BookNode search_for_book_bst(BookNode root, int ISBN) {
         // root is null -> return false
         if (root == null) {
             return null;
@@ -42,23 +49,19 @@ public class BookController {
         }
 
         if (ISBN > root.b.ISBN) {
-            return search_for_book(root.left, ISBN);
+            return search_for_book_bst(root.right, ISBN);
         }
 
-        return search_for_book(root.right, ISBN);
+        return search_for_book_bst(root.left, ISBN);
     }
-
-    // Get inorder successor (smallest in right subtree)
-    public Node getSuccessor(Node curr) {
+    private static BookNode getSuccessor(BookNode curr) {
         curr = curr.right;
         while (curr != null && curr.left != null) {
             curr = curr.left;
         }
         return curr;
     }
-
-    // Delete a node with value x from BST
-    public Node delNode(Node root, int ISBN) {
+    private static BookNode delNode(BookNode root, int ISBN) {
         if (root == null) {
             return root;
         }
@@ -77,18 +80,10 @@ public class BookController {
             }
 
             // Node with 2 children
-            Node succ = getSuccessor(root);
+            BookNode succ = getSuccessor(root);
             root.b.ISBN = succ.b.ISBN;
             root.right = delNode(root.right, succ.b.ISBN);
         }
         return root;
-    }
-
-    public void print(Node root){
-        if(root == null)
-            return;
-        System.out.println(root.b.ISBN);
-        print(root.left);
-        print(root.right);
     }
 }

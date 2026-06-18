@@ -9,14 +9,14 @@ package com.mycompany.librarymanagementsystem;
  * @author samid
  */
 public class AVLBookController {
-    public void turn_to_AVL(Node root) {
+    public void turn_to_AVL(BookNode root) {
 
     }
 
 
         // A utility function to get the
         // height of the tree 
-        static int height(Node N) {
+        static int height(BookNode N) {
             if (N == null) {
                 return 0;
             }
@@ -25,9 +25,9 @@ public class AVLBookController {
 
         // A utility function to right rotate
         // subtree rooted with y 
-        static Node rightRotate(Node y) {
-            Node x = y.left;
-            Node T2 = x.right;
+        static BookNode rightRotate(BookNode y) {
+            BookNode x = y.left;
+            BookNode T2 = x.right;
 
             // Perform rotation 
             x.right = y;
@@ -45,9 +45,9 @@ public class AVLBookController {
 
         // A utility function to left rotate 
         // subtree rooted with x 
-        static Node leftRotate(Node x) {
-            Node y = x.right;
-            Node T2 = y.left;
+        static BookNode leftRotate(BookNode x) {
+            BookNode y = x.right;
+            BookNode T2 = y.left;
 
             // Perform rotation 
             y.left = x;
@@ -64,7 +64,7 @@ public class AVLBookController {
         }
 
         // Get balance factor of node N 
-        static int getBalance(Node N) {
+        static int getBalance(BookNode N) {
             if (N == null) {
                 return 0;
             }
@@ -73,11 +73,11 @@ public class AVLBookController {
 
         // Recursive function to insert a key in
         // the subtree rooted with node 
-        static Node insert(Node node, Book b) {
+        static BookNode insert(BookNode node, Book b) {
 
             // Perform the normal BST insertion
             if (node == null) {
-                return new Node(b);
+                return new BookNode(b);
             }
 
             if (b.ISBN < node.b.ISBN) {

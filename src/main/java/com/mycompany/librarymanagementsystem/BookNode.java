@@ -4,16 +4,18 @@
  */
 package com.mycompany.librarymanagementsystem;
 
-// a bNode is a node that represents a book
-public class bNode {
+/**
+ *
+ * @author USER
+ */
+class BookNode{
     Book b;
-    bNode left;
-    bNode right;
-    public bNode(){
-        this.b = null;
-    }
-    public bNode(Book b){
+    BookNode left;
+    BookNode right;
+    int height;
+    BookNode(Book b){
         this.b = b;
         left = right = null;
+        height = 1;
     }
 }
