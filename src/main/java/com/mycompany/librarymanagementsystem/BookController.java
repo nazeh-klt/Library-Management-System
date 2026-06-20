@@ -1,8 +1,8 @@
 package com.mycompany.librarymanagementsystem;
 
 public class BookController {
-    static BookNode root=null;
-
+    static BookNode root = null;
+    //static BookNode AVLroot = null;
     public static void add_book(int ISBN) {
         root = add_book_to_bst(root, ISBN);
     }
@@ -10,7 +10,7 @@ public class BookController {
         return search_for_book_bst(root, ISBN);
     }
     public static void delete_book(int ISBN) {
-        root = delNode(root, ISBN);
+        root = remove_book_from_library_bst(root, ISBN);
     }
     public static void print(){
         print(root);
@@ -34,7 +34,7 @@ public class BookController {
         } else if (root.b.ISBN > ISBN) {
             root.left = add_book_to_bst(root.left, ISBN);
         } else {
-            root.b.counter++;
+            root.b.copy++;
         }
         return root;
     }
@@ -61,15 +61,15 @@ public class BookController {
         }
         return curr;
     }
-    private static BookNode delNode(BookNode root, int ISBN) {
+    private static BookNode remove_book_from_library_bst(BookNode root, int ISBN) {
         if (root == null) {
             return root;
         }
 
         if (root.b.ISBN > ISBN) {
-            root.left = delNode(root.left, ISBN);
+            root.left = remove_book_from_library_bst(root.left, ISBN);
         } else if (root.b.ISBN < ISBN) {
-            root.right = delNode(root.right, ISBN);
+            root.right = remove_book_from_library_bst(root.right, ISBN);
         } else {
             // Node with 0 or 1 child
             if (root.left == null) {
@@ -82,7 +82,7 @@ public class BookController {
             // Node with 2 children
             BookNode succ = getSuccessor(root);
             root.b.ISBN = succ.b.ISBN;
-            root.right = delNode(root.right, succ.b.ISBN);
+            root.right = remove_book_from_library_bst(root.right, succ.b.ISBN);
         }
         return root;
     }
