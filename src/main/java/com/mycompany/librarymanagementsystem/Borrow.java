@@ -9,6 +9,7 @@ import java.time.*;
  * @author Admin
  */
 public class Borrow {
+    static int nextid = 0;
     int id;
     Book book;
     String student_name;
@@ -19,6 +20,8 @@ public class Borrow {
 
 
     Borrow(Book book, String name ,LocalDate expected_return, boolean is_graduated){
+        id = nextid;
+        nextid++;
         this.book = book;
         this.student_name = name;
         this.borrow_date = LocalDate.now();
