@@ -4,29 +4,30 @@ public class AVLBookController {
 
     static BookNode root = null;
 
-    /*
-    public static void turn_system_avl(){
-        avlRoot = turn_bst_to_avl(root);
-    }
-     */
-    public static void add_avl_book(int ISBN) {
-        root = add_to_avl(root, ISBN);
-    }
-    
-    public static void delete_avl_book(int ISBN){
-        root = remove_book_from_library(root, ISBN);
+    public static void add_avl_book(int ISBN, int copy, String title, String author, String category) {
+        root = add_to_avl(root, ISBN, copy, title, author, category);
     }
 
-    /*
-    private static void turn_bst_to_avl(BookNode avlRoot, BookNode root){
-        if(root == null){
-            return;
-        }
-        avlRoot = add_avl_book(avlRoot, avlRoot.b.ISBN);
-        turn_bst_to_avl(root.left);
-        turn_bst_to_avl(root.right);
+    public static void delete_avl_book(int ISBN) {
+        root = remove_book_from_library(root, ISBN);
     }
-     */
+    
+    public static BookNode search_for_book(int ISBN) {
+        return search_for_book_avl(root, ISBN);
+    }
+    
+    public static void print(){
+        print(root);
+    }
+    
+    private static void print(BookNode root){
+        if(root == null)
+            return;
+        print(root.left);
+        System.out.println(root.b.ISBN);
+        print(root.right);
+    }
+
     private static int height(BookNode n) {
         if (n == null) {
             return 0;
@@ -61,16 +62,17 @@ public class AVLBookController {
         return y;
     }
 
-    private static BookNode add_to_avl(BookNode n, int ISBN) {
+    private static BookNode add_to_avl(BookNode n, int ISBN, int copy, String title, String author, String category) {
         if (n == null) {
-            return new BookNode(new Book(ISBN));
+            return new BookNode(new Book(ISBN, copy, title, author, category));
         }
 
         if (ISBN < n.b.ISBN) {
-            n.left = add_to_avl(n.left, ISBN);
+            n.left = add_to_avl(n.left, ISBN, copy, title, author, category);
         } else if (ISBN > n.b.ISBN) {
-            n.right = add_to_avl(n.right, ISBN);
+            n.right = add_to_avl(n.right, ISBN, copy, title, author, category);
         } else {
+            n.b.copy++;
             return n;
         }
         n.height = 1 + Math.max(height(n.left), height(n.right));
@@ -97,56 +99,76 @@ public class AVLBookController {
         return n;
     }
     
-    private static BookNode getLeftMost(BookNode root){
+    private static BookNode search_for_book_avl(BookNode root, int ISBN) {
+        // root is null -> return false
+        if (root == null) {
+            return null;
+        }
+        // if root has key -> return true
+        if (root.b.ISBN == ISBN) {
+            return root;
+        }
+
+        if (ISBN > root.b.ISBN) {
+            return search_for_book_avl(root.right, ISBN);
+        }
+
+        return search_for_book_avl(root.left, ISBN);
+    }
+
+    private static BookNode getLeftMost(BookNode root) {
         BookNode current = root;
-        while(current.left != null){
+        while (current.left != null) {
             current = current.left;
         }
         return current;
     }
-    
-    private static BookNode remove_book_from_library(BookNode root, int ISBN){
-        if(root == null){
+
+    private static BookNode remove_book_from_library(BookNode root, int ISBN) {
+        if (root == null) {
             return root;
         }
-        
-        if(root.b.ISBN > ISBN){
+
+        if (root.b.ISBN > ISBN) {
             root.left = remove_book_from_library(root.left, ISBN);
-        }
-        else if(root.b.ISBN < ISBN){
+        } else if (root.b.ISBN < ISBN) {
             root.right = remove_book_from_library(root.right, ISBN);
-        }
-        else{
-            if(root.left == null || root.right == null){
+        } else {
+            if (root.left == null || root.right == null) {
+                root.b.copy--;
                 root = (root.left != null) ? root.left : root.right;
-            }
-            else{
-                int num = getLeftMost(root.right).b.ISBN;
-                root.b.ISBN = num;
-                root = remove_book_from_library(root.right,num);
+            } else {
+                root.b.copy--;
+                BookNode current = getLeftMost(root.right);
+                root.b.ISBN = current.b.ISBN;
+                root.b.author = current.b.author;
+                root.b.category = current.b.category;
+                root.b.title = current.b.title;
+                root.b.copy = current.b.copy;
+                root = remove_book_from_library(root.right, root.b.ISBN);
             }
         }
-        
-        if(root == null){
+
+        if (root == null) {
             return root;
         }
-        
+
         root.height = 1 + Math.max(root.left.height, root.right.height);
         int balance = getBalance(root);
-        if(balance > 1 && ISBN < root.b.left.ISBN){
+        if (balance > 1 && ISBN < root.left.b.ISBN) {
             return rightRotate(root);
         }
-        if(balance > 1 && ISBN > root.b.left.ISBN){
+        if (balance > 1 && ISBN > root.left.b.ISBN) {
             root.left = leftRotate(root.left);
             return rightRotate(root);
         }
-        if(balance < -1 && ISBN > root.right.b.ISBN){
+        if (balance < -1 && ISBN > root.right.b.ISBN) {
             return leftRotate(root);
         }
-        if(balance < -1 && ISBN < root.right.b.ISBN){
+        if (balance < -1 && ISBN < root.right.b.ISBN) {
             root.right = rightRotate(root.right);
             return leftRotate(root);
-        } 
+        }
         return root;
     }
 }
