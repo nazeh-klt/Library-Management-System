@@ -9,19 +9,21 @@ import java.time.*;
  * @author Admin
  */
 public class Borrow {
+    int id;
     Book book;
-    String name;
-    String book_title;
+    String student_name;
     LocalDate borrow_date;
     LocalDate return_date;
     LocalDate expected_return;
+    boolean is_graduated;
 
-    Borrow(Book book, String name, String book_title, LocalDate borrow_date, LocalDate return_date ,LocalDate expected_return ){
+
+    Borrow(Book book, String name ,LocalDate expected_return, boolean is_graduated){
         this.book = book;
-        this.name = name;
-        this.borrow_date = borrow_date;
+        this.student_name = name;
+        this.borrow_date = LocalDate.now();
         this.expected_return = expected_return;
-        
+        this.is_graduated = is_graduated;
         
     }
 
