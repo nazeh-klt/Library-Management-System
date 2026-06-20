@@ -30,7 +30,7 @@ public class BorrowController {
                     counter++;
                 }
             }
-            if (counter < borrow_log.get(ids.get(0)).book.counter) {
+            if (counter < borrow_log.get(ids.get(0)).book.copy) {
                 return true;
             }
         }
