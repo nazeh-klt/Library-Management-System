@@ -100,11 +100,9 @@ public class AVLBookController {
     }
     
     private static BookNode search_for_book_avl(BookNode root, int ISBN) {
-        // root is null -> return false
         if (root == null) {
             return null;
         }
-        // if root has key -> return true
         if (root.b.ISBN == ISBN) {
             return root;
         }
@@ -153,7 +151,7 @@ public class AVLBookController {
             return root;
         }
 
-        root.height = 1 + Math.max(root.left.height, root.right.height);
+        root.height = 1 + Math.max(height(root.left), height(root.right));
         int balance = getBalance(root);
         if (balance > 1 && ISBN < root.left.b.ISBN) {
             return rightRotate(root);
