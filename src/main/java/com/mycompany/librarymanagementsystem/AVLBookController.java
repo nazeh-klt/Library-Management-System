@@ -140,11 +140,7 @@ public class AVLBookController {
             } else {
                 root.b.copy--;
                 BookNode current = getLeftMost(root.right);
-                root.b.ISBN = current.b.ISBN;
-                root.b.author = current.b.author;
-                root.b.category = current.b.category;
-                root.b.title = current.b.title;
-                root.b.copy = current.b.copy;
+                root.b = current.b;
                 root = remove_book_from_library(root.right, root.b.ISBN);
             }
         }
