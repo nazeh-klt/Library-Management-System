@@ -16,17 +16,22 @@ public class BorrowController {
     static AVLExpectedReturn expected_return_index = new AVLExpectedReturn();
 
     public static boolean check_available_book_by_ISBN(int ISBN) {
-        int counter = 0;
+        BookNode node = AVLBookController.search_for_book(ISBN);
+        if (node == null) return false;
+
+        int activeBorrows = 0;
         ArrayList<Integer> ids = borrowed_id_by_ISBN.get(ISBN);
-        if (ids == null) {
-            return true;
-        }
-        for (var id : ids) {
-            if (borrow_log.get(id).return_date == null) {
-                counter++;
+
+        if (ids != null) {
+            for (int id : ids) {
+                Borrow b = borrow_log.get(id);
+                if (b != null && b.return_date == null) {
+                    activeBorrows++;
+                }
             }
         }
-        return counter < borrow_log.get(ids.get(0)).book.copy;
+
+        return activeBorrows < node.b.copy;
     }
 
     public static boolean check_max_borrowings_exceeded(String name) {

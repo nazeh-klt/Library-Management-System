@@ -32,7 +32,7 @@ public class BookController {
         } else if (root.b.ISBN > ISBN) {
             root.left = add_book_to_bst(root.left, ISBN, copy, title, author, category);
         } else {
-            root.b.copy++;
+            System.out.println("هذا الكتاب موجود بالفعل في المكتبة");
         }
         return root;
     }
