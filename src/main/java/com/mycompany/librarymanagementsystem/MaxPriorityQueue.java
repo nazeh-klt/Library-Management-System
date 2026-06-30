@@ -97,7 +97,8 @@ public class MaxPriorityQueue {
         heap.set(j, temp);
     }
 
-    // For iterating (used to check duplicates)
+    // BUG: This returns the live heap list, so callers can accidentally reorder or corrupt the queue.
+    // GUI code should only copy/read the public heap data and must not mutate it.
     public ArrayList<BookQueue> getElements() {
         return heap;
     }

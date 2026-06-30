@@ -98,6 +98,8 @@ public class BorrowController {
         expected_return_index.root = AVLExpectedReturn.insert(expected_return_index.root, expected_return, borrow.id);
     }
 
+    // BUG: This method delegates to return_book(int), which can block on console input through
+    // processWaitingList. GUI code should not call this wrapper until that flow is made non-blocking.
     public static void return_book(String student_name, int ISBN) {
         ArrayList<Integer> ids = borrowed_id_by_name.get(student_name);
 
@@ -200,6 +202,8 @@ public class BorrowController {
         return heap;
     }
 
+    // BUG: This method sorts the live heap list returned by getElements(), which can break the
+    // priority queue structure. It also reads from System.in, so GUI code must not call it.
     private static void processWaitingList(int ISBN) {
         MaxPriorityQueue heap = wait_requests_queue_by_ISBN.get(ISBN);
         if (heap == null || heap.isEmpty() || !check_available_book_by_ISBN(ISBN)) {
@@ -245,7 +249,8 @@ public class BorrowController {
         // If no eligible student, do nothing; waiting list unchanged
     }
 
-// Helper method to read a date from the console
+    // BUG: This method reads from the console, which can block a Swing GUI. GUI flows should collect
+    // dates from Swing inputs instead of calling this method.
     private static LocalDate readExpectedReturnDate(Scanner scanner, String studentName) {
         System.out.println("Enter expected return date for " + studentName + " (day month year):");
         int day = scanner.nextInt();

@@ -72,23 +72,11 @@ public class DashboardFrame extends JFrame {
 
         contentPanel.add(new BooksPanel(), BOOKS_PANEL);
 
-        contentPanel.add(createSimplePanel(
-                BORROWS_PANEL,
-                "Borrow and return actions will be added here.",
-                "TODO: Do not call BorrowController.borrow_book or return_book until availability and console-input issues are fixed."
-        ), BORROWS_PANEL);
+        contentPanel.add(new BorrowsPanel(), BORROWS_PANEL);
 
-        contentPanel.add(createSimplePanel(
-                WAITING_LIST_PANEL,
-                "Waiting list view will be added here.",
-                "TODO: Expose safe waiting-list read methods before displaying queue data in the GUI."
-        ), WAITING_LIST_PANEL);
+        contentPanel.add(new WaitingListPanel(), WAITING_LIST_PANEL);
 
-        contentPanel.add(createSimplePanel(
-                REPORTS_PANEL,
-                "Reports will be added here.",
-                "TODO: Connect reports after backend data sources are made consistent."
-        ), REPORTS_PANEL);
+        contentPanel.add(new ReportsPanel(), REPORTS_PANEL);
 
         return contentPanel;
     }
