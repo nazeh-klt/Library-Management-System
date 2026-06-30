@@ -8,7 +8,6 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -37,23 +36,32 @@ public class DashboardFrame extends JFrame {
     }
 
     private JPanel createMenuPanel() {
-        JPanel menuPanel = new JPanel(new GridLayout(4, 1, 0, 8));
+        JPanel menuPanel = new JPanel(new BorderLayout(0, 16));
         menuPanel.setPreferredSize(new Dimension(170, 0));
         menuPanel.setBorder(BorderFactory.createEmptyBorder(16, 12, 16, 12));
         menuPanel.setBackground(new Color(238, 241, 245));
 
-        menuPanel.add(createMenuButton(BOOKS_PANEL));
-        menuPanel.add(createMenuButton(BORROWS_PANEL));
-        menuPanel.add(createMenuButton(WAITING_LIST_PANEL));
-        menuPanel.add(createMenuButton(REPORTS_PANEL));
+        JLabel titleLabel = new JLabel("<html><div style='text-align:center;'>Library<br>Management<br>System</div></html>");
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        titleLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 17));
+        titleLabel.setForeground(new Color(45, 69, 99));
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(4, 0, 10, 0));
+
+        JPanel buttonsPanel = new JPanel(new GridLayout(4, 1, 0, 10));
+        buttonsPanel.setBackground(new Color(238, 241, 245));
+        buttonsPanel.add(createMenuButton(BOOKS_PANEL));
+        buttonsPanel.add(createMenuButton(BORROWS_PANEL));
+        buttonsPanel.add(createMenuButton(WAITING_LIST_PANEL));
+        buttonsPanel.add(createMenuButton(REPORTS_PANEL));
+
+        menuPanel.add(titleLabel, BorderLayout.NORTH);
+        menuPanel.add(buttonsPanel, BorderLayout.CENTER);
 
         return menuPanel;
     }
 
-    private JButton createMenuButton(String title) {
-        JButton button = new JButton(title);
-        button.setFocusPainted(false);
-        button.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 15));
+    private ModernButton createMenuButton(String title) {
+        ModernButton button = ModernButton.sidebar(title);
         button.addActionListener(event -> showPanel(title));
         return button;
     }
@@ -62,11 +70,7 @@ public class DashboardFrame extends JFrame {
         contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
         contentPanel.setBackground(Color.WHITE);
 
-        contentPanel.add(createSimplePanel(
-                BOOKS_PANEL,
-                "Book management will be added here.",
-                "TODO: Wire add/search/delete only after choosing one correct book tree backend."
-        ), BOOKS_PANEL);
+        contentPanel.add(new BooksPanel(), BOOKS_PANEL);
 
         contentPanel.add(createSimplePanel(
                 BORROWS_PANEL,
