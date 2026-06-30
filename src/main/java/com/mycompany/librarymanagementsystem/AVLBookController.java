@@ -72,8 +72,7 @@ public class AVLBookController {
         } else if (ISBN > n.b.ISBN) {
             n.right = add_to_avl(n.right, ISBN, copy, title, author, category);
         } else {
-            n.b.copy++;
-            return n;
+           System.out.println("هذا الكتاب موجود بالفعل في المكتبة");
         }
         n.height = 1 + Math.max(height(n.left), height(n.right));
         int balance = getBalance(n);
