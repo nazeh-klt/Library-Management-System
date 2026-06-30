@@ -121,6 +121,9 @@ public class AVLBookController {
         return current;
     }
 
+    // BUG: This delete method decrements copy counts while also removing/replacing tree nodes.
+    // For a node with two children it drops the left subtree by assigning root = remove_book_from_library(root.right, ...),
+    // so GUI code should not call delete_avl_book until this backend logic is corrected.
     private static BookNode remove_book_from_library(BookNode root, int ISBN) {
         if (root == null) {
             return root;

@@ -1,0 +1,128 @@
+package com.mycompany.librarymanagementsystem;
+
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridLayout;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingConstants;
+
+public class DashboardFrame extends JFrame {
+    private static final String BOOKS_PANEL = "Books";
+    private static final String BORROWS_PANEL = "Borrows";
+    private static final String WAITING_LIST_PANEL = "Waiting List";
+    private static final String REPORTS_PANEL = "Reports";
+
+    private final CardLayout cardLayout = new CardLayout();
+    private final JPanel contentPanel = new JPanel(cardLayout);
+
+    public DashboardFrame() {
+        setTitle("Library Management Dashboard");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setMinimumSize(new Dimension(800, 500));
+        setSize(900, 550);
+        setLocationRelativeTo(null);
+
+        add(createMenuPanel(), BorderLayout.WEST);
+        add(createContentPanel(), BorderLayout.CENTER);
+
+        showPanel(BOOKS_PANEL);
+    }
+
+    private JPanel createMenuPanel() {
+        JPanel menuPanel = new JPanel(new GridLayout(4, 1, 0, 8));
+        menuPanel.setPreferredSize(new Dimension(170, 0));
+        menuPanel.setBorder(BorderFactory.createEmptyBorder(16, 12, 16, 12));
+        menuPanel.setBackground(new Color(238, 241, 245));
+
+        menuPanel.add(createMenuButton(BOOKS_PANEL));
+        menuPanel.add(createMenuButton(BORROWS_PANEL));
+        menuPanel.add(createMenuButton(WAITING_LIST_PANEL));
+        menuPanel.add(createMenuButton(REPORTS_PANEL));
+
+        return menuPanel;
+    }
+
+    private JButton createMenuButton(String title) {
+        JButton button = new JButton(title);
+        button.setFocusPainted(false);
+        button.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 15));
+        button.addActionListener(event -> showPanel(title));
+        return button;
+    }
+
+    private JPanel createContentPanel() {
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
+        contentPanel.setBackground(Color.WHITE);
+
+        contentPanel.add(createSimplePanel(
+                BOOKS_PANEL,
+                "Book management will be added here.",
+                "TODO: Wire add/search/delete only after choosing one correct book tree backend."
+        ), BOOKS_PANEL);
+
+        contentPanel.add(createSimplePanel(
+                BORROWS_PANEL,
+                "Borrow and return actions will be added here.",
+                "TODO: Do not call BorrowController.borrow_book or return_book until availability and console-input issues are fixed."
+        ), BORROWS_PANEL);
+
+        contentPanel.add(createSimplePanel(
+                WAITING_LIST_PANEL,
+                "Waiting list view will be added here.",
+                "TODO: Expose safe waiting-list read methods before displaying queue data in the GUI."
+        ), WAITING_LIST_PANEL);
+
+        contentPanel.add(createSimplePanel(
+                REPORTS_PANEL,
+                "Reports will be added here.",
+                "TODO: Connect reports after backend data sources are made consistent."
+        ), REPORTS_PANEL);
+
+        return contentPanel;
+    }
+
+    private JPanel createSimplePanel(String title, String message, String todo) {
+        JPanel panel = new JPanel(new BorderLayout(0, 12));
+        panel.setBackground(Color.WHITE);
+
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24));
+
+        JLabel messageLabel = new JLabel(message);
+        messageLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 16));
+
+        JLabel todoLabel = new JLabel(todo);
+        todoLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
+        todoLabel.setForeground(new Color(90, 90, 90));
+
+        JPanel textPanel = new JPanel(new GridLayout(2, 1, 0, 6));
+        textPanel.setBackground(Color.WHITE);
+        textPanel.add(messageLabel);
+        textPanel.add(todoLabel);
+
+        panel.add(titleLabel, BorderLayout.NORTH);
+        panel.add(textPanel, BorderLayout.CENTER);
+        alignLabelsLeft(panel);
+        return panel;
+    }
+
+    private void showPanel(String title) {
+        cardLayout.show(contentPanel, title);
+    }
+
+    private void alignLabelsLeft(JPanel panel) {
+        for (Component component : panel.getComponents()) {
+            if (component instanceof JLabel label) {
+                label.setHorizontalAlignment(SwingConstants.LEFT);
+            }
+        }
+    }
+}

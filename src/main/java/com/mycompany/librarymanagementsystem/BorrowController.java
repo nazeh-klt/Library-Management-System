@@ -15,6 +15,8 @@ public class BorrowController {
     static HashMap<Integer, MaxPriorityQueue> wait_requests_queue_by_ISBN = new HashMap();
     static AVLExpectedReturn expected_return_index = new AVLExpectedReturn();
 
+    // BUG: Availability is checked only against AVLBookController.root, while BookController stores
+    // books in a separate BST root. Calls can report unavailable for books added through BookController.
     public static boolean check_available_book_by_ISBN(int ISBN) {
         BookNode node = AVLBookController.search_for_book(ISBN);
         if (node == null) return false;
@@ -34,6 +36,8 @@ public class BorrowController {
         return activeBorrows < node.b.copy;
     }
 
+    // BUG: The method name says "exceeded", but it returns true when the student is still allowed
+    // to borrow. This inverted meaning makes direct GUI validation easy to misuse.
     public static boolean check_max_borrowings_exceeded(String name) {
         int counter = 0;
         ArrayList<Integer> ids = borrowed_id_by_name.get(name);
@@ -48,6 +52,8 @@ public class BorrowController {
         return counter < max_borrowings;
     }
 
+    // BUG: This method depends on check_available_book_by_ISBN, so it inherits the separate-root
+    // availability issue. The request_date parameter is also ignored for successful borrows.
     public static void borrow_book(Book book, String student_name, LocalDate request_date, LocalDate expected_return, boolean is_graduated) {
         if (!check_available_book_by_ISBN(book.ISBN)) {
             if (!check_max_borrowings_exceeded(student_name)) {
@@ -122,6 +128,8 @@ public class BorrowController {
         return_book(foundId);
     }
 
+    // BUG: Returning a book can call processWaitingList, which reads from System.in for the next
+    // expected return date. GUI code should not call this because it can block the Swing event thread.
     public static void return_book(int recordId) {
         Borrow borrow = borrow_log.get(recordId);
 
