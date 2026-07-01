@@ -21,6 +21,10 @@ import javax.swing.RowFilter;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
+// Uses AVLBookController exclusively (not BookController's plain BST). AVLBookController is the
+// balanced structure the assignment asks for, and it's the one BorrowController.check_available_book_by_ISBN
+// already trusts, so keeping a single source of truth for books avoids the "book exists in one
+// tree but not the other" bug that used to block Borrow/Return.
 public class BooksPanel extends JPanel {
     private final JTextField searchField = new JTextField(18);
     private final DefaultTableModel tableModel = new DefaultTableModel(
@@ -148,7 +152,7 @@ public class BooksPanel extends JPanel {
 
     private List<Book> getAllBooks() {
         List<Book> books = new ArrayList<>();
-        collectBooks(BookController.root, books);
+        collectBooks(AVLBookController.root, books);
         return books;
     }
 
@@ -187,11 +191,11 @@ public class BooksPanel extends JPanel {
         if (data == null) {
             return;
         }
-        if (BookController.search_for_book(data.isbn) != null) {
+        if (AVLBookController.search_for_book(data.isbn) != null) {
             showMessage("A book with this ISBN already exists.");
             return;
         }
-        BookController.add_book(data.isbn, data.copies, data.title, data.author, data.category);
+        AVLBookController.add_avl_book(data.isbn, data.copies, data.title, data.author, data.category);
         refreshTable();
         selectBookByIsbn(data.isbn);
     }
@@ -209,20 +213,34 @@ public class BooksPanel extends JPanel {
             return;
         }
 
-        BookNode duplicate = BookController.search_for_book(data.isbn);
+        BookNode duplicate = AVLBookController.search_for_book(data.isbn);
         if (data.isbn != oldIsbn && duplicate != null) {
             showMessage("Another book already uses this ISBN.");
             return;
         }
 
         if (data.isbn == oldIsbn) {
+            // ISBN unchanged: copy count is validated against active borrows before being applied,
+            // since dropping it below the number of copies currently checked out would make
+            // check_available_book_by_ISBN report a negative number of free copies as "available".
+            if (!BorrowController.can_reduce_copies(data.isbn, data.copies)) {
+                showMessage("Can't set copies below the number currently on loan for this ISBN.");
+                return;
+            }
             selected.b.title = data.title;
             selected.b.author = data.author;
             selected.b.category = data.category;
-            selected.b.copy = data.copies;
+            AVLBookController.update_copy_count(data.isbn, data.copies);
         } else {
-            BookController.delete_book(oldIsbn);
-            BookController.add_book(data.isbn, data.copies, data.title, data.author, data.category);
+            // ISBN changed: this is really "delete old entry, add new one" rather than an
+            // in-place edit, so it's blocked if the old ISBN has active loans out - see
+            // deleteSelectedBook for the same reasoning.
+            if (BorrowController.has_active_borrows(oldIsbn)) {
+                showMessage("Can't change the ISBN of a book that has active loans. Wait until all copies are returned.");
+                return;
+            }
+            AVLBookController.delete_avl_book(oldIsbn);
+            AVLBookController.add_avl_book(data.isbn, data.copies, data.title, data.author, data.category);
         }
 
         refreshTable();
@@ -236,6 +254,11 @@ public class BooksPanel extends JPanel {
             return;
         }
 
+        if (BorrowController.has_active_borrows(selected.b.ISBN)) {
+            showMessage("Can't delete a book that currently has active loans out.");
+            return;
+        }
+
         int answer = JOptionPane.showConfirmDialog(
                 this,
                 "Delete selected book?",
@@ -246,7 +269,7 @@ public class BooksPanel extends JPanel {
             return;
         }
 
-        BookController.delete_book(selected.b.ISBN);
+        AVLBookController.delete_avl_book(selected.b.ISBN);
         clearDetails();
         refreshTable();
     }
@@ -258,7 +281,7 @@ public class BooksPanel extends JPanel {
         }
         int modelRow = booksTable.convertRowIndexToModel(selectedRow);
         int isbn = (int) tableModel.getValueAt(modelRow, 0);
-        return BookController.search_for_book(isbn);
+        return AVLBookController.search_for_book(isbn);
     }
 
     private BookFormData readFormData() {

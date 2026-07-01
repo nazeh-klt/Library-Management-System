@@ -2,21 +2,20 @@ package com.mycompany.librarymanagementsystem;
 
 import java.util.*;
 import java.time.*;
+import java.util.function.Function;
 
 public class BorrowController {
 
     final static int max_borrowings = 5;
     private static final Scanner scanner = new Scanner(System.in);
-    //static Comparator<WaitRequest> waitComparator = 
-    //Comparator.comparing(WaitRequest::isGraduated).reversed().thenComparing(WaitRequest::requestDate);
     static HashMap<Integer, Borrow> borrow_log = new HashMap();
     static HashMap<Integer, ArrayList<Integer>> borrowed_id_by_ISBN = new HashMap();
     static HashMap<String, ArrayList<Integer>> borrowed_id_by_name = new HashMap();
     static HashMap<Integer, MaxPriorityQueue> wait_requests_queue_by_ISBN = new HashMap();
     static AVLExpectedReturn expected_return_index = new AVLExpectedReturn();
 
-    // BUG: Availability is checked only against AVLBookController.root, while BookController stores
-    // books in a separate BST root. Calls can report unavailable for books added through BookController.
+    // Availability now checks AVLBookController exclusively, which is the single book store the
+    // GUI writes to (BooksPanel was switched from BookController to AVLBookController).
     public static boolean check_available_book_by_ISBN(int ISBN) {
         BookNode node = AVLBookController.search_for_book(ISBN);
         if (node == null) return false;
@@ -36,9 +35,6 @@ public class BorrowController {
         return activeBorrows < node.b.copy;
     }
 
-    // Renamed from check_max_borrowings_exceeded, whose name said the opposite of what it
-    // returned (it returned true when the student was still allowed to borrow, not when the
-    // limit had been hit). Behavior is unchanged - only the name matches the meaning now.
     public static boolean can_borrow_more(String name) {
         int counter = 0;
         ArrayList<Integer> ids = borrowed_id_by_name.get(name);
@@ -53,9 +49,6 @@ public class BorrowController {
         return counter < max_borrowings;
     }
 
-    // Pairs with BookController.update_copy_count / AVLBookController.update_copy_count.
-    // Those methods only know about the book's own copy field, not about active borrows,
-    // so this cross-controller check belongs here rather than in either book controller.
     public static boolean can_reduce_copies(int ISBN, int newCount) {
         if (newCount < 0) {
             return false;
@@ -73,29 +66,50 @@ public class BorrowController {
         return newCount >= activeBorrows;
     }
 
-    // BUG: This method depends on check_available_book_by_ISBN, so it inherits the separate-root
-    // availability issue. The request_date parameter is also ignored for successful borrows.
-    public static void borrow_book(Book book, String student_name, LocalDate request_date, LocalDate expected_return, boolean is_graduated) {
+    // Used by BooksPanel before allowing a full delete - a book with active loans out
+    // shouldn't be removable from the catalog.
+    public static boolean has_active_borrows(int ISBN) {
+        ArrayList<Integer> ids = borrowed_id_by_ISBN.get(ISBN);
+        if (ids == null) return false;
+        for (int id : ids) {
+            Borrow b = borrow_log.get(id);
+            if (b != null && b.return_date == null) return true;
+        }
+        return false;
+    }
+
+    // What actually happened when borrow_book was called - lets callers (like the GUI) report
+    // the real outcome instead of guessing from an availability check made before the call,
+    // which can be wrong if the student was blocked for an unrelated reason (borrow limit,
+    // already on the waitlist).
+    public enum BorrowResult {
+        BORROWED,
+        ADDED_TO_WAITLIST,
+        ALREADY_ON_WAITLIST,
+        BORROW_LIMIT_EXCEEDED
+    }
+
+    public static BorrowResult borrow_book(Book book, String student_name, LocalDate request_date, LocalDate expected_return, boolean is_graduated) {
         if (!check_available_book_by_ISBN(book.ISBN)) {
             if (!can_borrow_more(student_name)) {
                 System.out.println("Borrow limited exceeded, can't be added to waiting list, you must return a book if you want to borrow another");
-                return;
+                return BorrowResult.BORROW_LIMIT_EXCEEDED;
             }
             MaxPriorityQueue heap = get_waitlist(book.ISBN);
             for (BookQueue r : heap.getElements()) {
                 if (r.studentName.equals(student_name)) {
                     System.out.println("Already on waiting list for " + book.title);
-                    return;
+                    return BorrowResult.ALREADY_ON_WAITLIST;
                 }
             }
             System.out.println("Book currently unavailable, added to waiting list");
             heap.insert(new BookQueue(student_name, is_graduated, request_date));
-            return;
+            return BorrowResult.ADDED_TO_WAITLIST;
         }
 
         if (!can_borrow_more(student_name)) {
             System.out.println("Borrow limited exceeded, you must return a book if you want to borrow another");
-            return;
+            return BorrowResult.BORROW_LIMIT_EXCEEDED;
         }
 
         Borrow borrow = new Borrow(book, student_name, expected_return, is_graduated);
@@ -117,11 +131,22 @@ public class BorrowController {
 
         name_list.add(borrow.id);
         expected_return_index.root = AVLExpectedReturn.insert(expected_return_index.root, expected_return, borrow.id);
+        return BorrowResult.BORROWED;
     }
 
-    // BUG: This method delegates to return_book(int), which can block on console input through
-    // processWaitingList. GUI code should not call this wrapper until that flow is made non-blocking.
+    // Console-based overloads kept for a non-GUI/testing entry point. Both now delegate to the
+    // date-provider overloads below rather than duplicating the return logic.
     public static void return_book(String student_name, int ISBN) {
+        return_book(student_name, ISBN, BorrowController::readExpectedReturnDateConsole);
+    }
+
+    public static void return_book(int recordId) {
+        return_book(recordId, BorrowController::readExpectedReturnDateConsole);
+    }
+
+    // GUI-safe overload: instead of blocking on System.in when the waiting list needs a new
+    // expected-return date, this takes a callback the caller supplies (e.g. a Swing dialog).
+    public static void return_book(String student_name, int ISBN, Function<String, LocalDate> dateProvider) {
         ArrayList<Integer> ids = borrowed_id_by_name.get(student_name);
 
         if (ids == null || ids.isEmpty()) {
@@ -148,12 +173,10 @@ public class BorrowController {
             System.out.println("ERROR: " + student_name + " has no active borrow for ISBN: " + ISBN);
             return;
         }
-        return_book(foundId);
+        return_book(foundId, dateProvider);
     }
 
-    // BUG: Returning a book can call processWaitingList, which reads from System.in for the next
-    // expected return date. GUI code should not call this because it can block the Swing event thread.
-    public static void return_book(int recordId) {
+    public static void return_book(int recordId, Function<String, LocalDate> dateProvider) {
         Borrow borrow = borrow_log.get(recordId);
 
         if (borrow == null) {
@@ -168,20 +191,41 @@ public class BorrowController {
 
         borrow.return_date = LocalDate.now();
         System.out.println("SUCCESS: Book returned for Record ID: " + recordId);
-        removeFromWaitingList(borrow.book.ISBN, borrow.student_name);
-        processWaitingList(borrow.book.ISBN);
+        remove_wait_request(borrow.book.ISBN, borrow.student_name);
+        processWaitingList(borrow.book.ISBN, dateProvider);
+    }
+
+    // Removes a borrow record and its index entries entirely (distinct from returning a book -
+    // this erases the record itself, e.g. for correcting a data-entry mistake in the GUI).
+    // Known limitation: the AVLExpectedReturn date index has no delete operation, so a stale
+    // recordId can be left behind there. overdue() below null-checks borrow_log lookups so a
+    // stale id can't cause a crash, it will just be silently skipped since it's no longer present.
+    public static boolean delete_borrow_record(int recordId) {
+        Borrow borrow = borrow_log.remove(recordId);
+        if (borrow == null) {
+            return false;
+        }
+        ArrayList<Integer> isbnList = borrowed_id_by_ISBN.get(borrow.book.ISBN);
+        if (isbnList != null) {
+            isbnList.remove(Integer.valueOf(recordId));
+        }
+        ArrayList<Integer> nameList = borrowed_id_by_name.get(borrow.student_name);
+        if (nameList != null) {
+            nameList.remove(Integer.valueOf(recordId));
+        }
+        return true;
     }
 
     ArrayList<Borrow> overdue() {
         ArrayList<Integer> ids = expected_return_index.find_less_than(expected_return_index.root, LocalDate.now());
         ArrayList<Borrow> borrows = new ArrayList<Borrow>();
         for (var id : ids) {
-            if (borrow_log.get(id).return_date == null) {
-                borrows.add(borrow_log.get(id));
+            Borrow b = borrow_log.get(id);
+            if (b != null && b.return_date == null) {
+                borrows.add(b);
             }
         }
         return borrows;
-
     }
 
     ArrayList<Borrow> filter_by_student_name(String name) {
@@ -214,6 +258,30 @@ public class BorrowController {
 
     }
 
+    // Explicit "join the waiting list" action for the GUI's Add Request button. Deliberately
+    // separate from borrow_book: that method auto-lends the book if it happens to be available,
+    // which isn't what someone clicking "Add Request" in the Waiting List tab is asking for.
+    // Returns null on success, or a user-facing reason string on failure.
+    public static String add_to_waitlist(int ISBN, String studentName, boolean isGraduated, LocalDate requestDate) {
+        if (AVLBookController.search_for_book(ISBN) == null) {
+            return "No book with that ISBN exists.";
+        }
+        if (check_available_book_by_ISBN(ISBN)) {
+            return "This book currently has copies available - borrow it directly instead of waiting.";
+        }
+        if (!can_borrow_more(studentName)) {
+            return studentName + " already has the maximum number of active borrows and can't join the waiting list.";
+        }
+        MaxPriorityQueue heap = get_waitlist(ISBN);
+        for (BookQueue r : heap.getElements()) {
+            if (r.studentName.equals(studentName)) {
+                return studentName + " is already on the waiting list for this book.";
+            }
+        }
+        heap.insert(new BookQueue(studentName, isGraduated, requestDate));
+        return null;
+    }
+
     private static MaxPriorityQueue get_waitlist(int ISBN) {
         MaxPriorityQueue heap = wait_requests_queue_by_ISBN.get(ISBN);
         if (heap == null) {
@@ -223,18 +291,14 @@ public class BorrowController {
         return heap;
     }
 
-    // The sort below now operates on a copy (getElements() returns a defensive copy - see
-    // MaxPriorityQueue), so it no longer corrupts the underlying heap.
-    // REMAINING ISSUE: this still reads from System.in via readExpectedReturnDate, which will
-    // block if called from the Swing event thread - needs a non-console input path before any
-    // GUI code calls it. That's part of the GUI wiring pass, not a backend data-structure bug.
-    private static void processWaitingList(int ISBN) {
+    private static void processWaitingList(int ISBN, Function<String, LocalDate> dateProvider) {
         MaxPriorityQueue heap = wait_requests_queue_by_ISBN.get(ISBN);
         if (heap == null || heap.isEmpty() || !check_available_book_by_ISBN(ISBN)) {
             return;
         }
 
-        // 1. Get all waiters and sort them by priority (highest first)
+        // getElements() returns a copy, so sorting it here does not disturb the heap's own
+        // internal ordering.
         ArrayList<BookQueue> waiters = heap.getElements();
         Collections.sort(waiters, new Comparator<BookQueue>() {
             @Override
@@ -249,42 +313,37 @@ public class BorrowController {
             }
         });
 
-        // 2. Find the first eligible waiter
         for (BookQueue next : waiters) {
             if (can_borrow_more(next.studentName)) {
-                // This student can borrow now
+                LocalDate expected = dateProvider.apply(next.studentName);
+                if (expected == null) {
+                    // Caller (e.g. GUI dialog) was cancelled - leave the waiting list untouched
+                    // rather than assigning the book with no expected return date.
+                    return;
+                }
 
-                // Ask the user for the expected return date
-                LocalDate expected = readExpectedReturnDate(scanner, next.studentName);
-
-                // Remove this specific waiter from the heap
                 heap.remove(next);
 
-                // Retrieve the book
                 BookNode node = AVLBookController.search_for_book(ISBN);
                 if (node != null) {
-                    // Use request_date = now (the waiter's original request time is already inside BookQueue)
                     borrow_book(node.b, next.studentName, LocalDate.now(), expected, next.isGraduated);
                     System.out.println("Book assigned to waiting student: " + next.studentName);
                 }
-                return;   // Only one copy was freed
+                return;
             }
         }
-        // If no eligible student, do nothing; waiting list unchanged
     }
 
-    // BUG: This method reads from the console, which can block a Swing GUI. GUI flows should collect
-    // dates from Swing inputs instead of calling this method.
-    private static LocalDate readExpectedReturnDate(Scanner scanner, String studentName) {
+    private static LocalDate readExpectedReturnDateConsole(String studentName) {
         System.out.println("Enter expected return date for " + studentName + " (day month year):");
         int day = scanner.nextInt();
         int month = scanner.nextInt();
         int year = scanner.nextInt();
-        scanner.nextLine(); // consume the newline
+        scanner.nextLine();
         return LocalDate.of(year, month, day);
     }
 
-    private static void removeFromWaitingList(int ISBN, String studentName) {
+    public static void remove_wait_request(int ISBN, String studentName) {
         MaxPriorityQueue heap = wait_requests_queue_by_ISBN.get(ISBN);
         if (heap == null) {
             return;
@@ -296,11 +355,27 @@ public class BorrowController {
             }
         }
     }
+
+    // Reorders a waiting request by removing and reinserting it with new priority-relevant
+    // fields, rather than mutating a BookQueue in place (its fields aren't otherwise settable,
+    // and the heap has no "resift after external mutation" operation).
+    public static boolean update_wait_request(int ISBN, String studentName, boolean newGraduated, LocalDate newRequestDate) {
+        MaxPriorityQueue heap = wait_requests_queue_by_ISBN.get(ISBN);
+        if (heap == null) {
+            return false;
+        }
+        BookQueue found = null;
+        for (BookQueue r : heap.getElements()) {
+            if (r.studentName.equals(studentName)) {
+                found = r;
+                break;
+            }
+        }
+        if (found == null) {
+            return false;
+        }
+        heap.remove(found);
+        heap.insert(new BookQueue(studentName, newGraduated, newRequestDate));
+        return true;
+    }
 }
-    
-    
-    
-
-
-
-//adding later filtering by expected return date

@@ -6,7 +6,6 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -42,11 +41,8 @@ public class ReportsPanel extends JPanel {
         ModernButton refreshButton = ModernButton.toolbar("Refresh");
         ModernButton clearButton = ModernButton.toolbar("Clear");
 
-        // TODO: Do not call ReportController.getMostBorrowedBooksReport until borrow indexes are
-        // updated by safe GUI-compatible borrow/return methods.
-        mostBorrowedButton.addActionListener(event -> showTodo("Most Borrowed Books depends on unsafe borrow indexes."));
-        // TODO: Do not call ReportController.getMostReadAuthorReport until borrow indexes are safe.
-        mostReadAuthorsButton.addActionListener(event -> showTodo("Most Read Authors depends on unsafe borrow indexes."));
+        mostBorrowedButton.addActionListener(event -> showMostBorrowedReport());
+        mostReadAuthorsButton.addActionListener(event -> showMostReadAuthorReport());
         availableBooksButton.addActionListener(event -> showAvailableBooksReport());
         refreshButton.addActionListener(event -> showAvailableBooksReport());
         clearButton.addActionListener(event -> reportArea.setText(""));
@@ -60,16 +56,24 @@ public class ReportsPanel extends JPanel {
         return toolbar;
     }
 
+    private void showMostBorrowedReport() {
+        reportArea.setText(reportController.getMostBorrowedBooksReport());
+        reportArea.setCaretPosition(0);
+    }
+
+    private void showMostReadAuthorReport() {
+        reportArea.setText(reportController.getMostReadAuthorReport());
+        reportArea.setCaretPosition(0);
+    }
+
     private void showAvailableBooksReport() {
-        reportArea.setText(reportController.getAvailableBooksReport(BookController.root));
+        // AVLBookController.root, not BookController.root - the AVL tree is the single book
+        // store the rest of the app (BooksPanel, BorrowController) now reads and writes.
+        reportArea.setText(reportController.getAvailableBooksReport(AVLBookController.root));
         reportArea.setCaretPosition(0);
     }
 
     private void showWelcomeText() {
         reportArea.setText("Select a report from the toolbar.");
-    }
-
-    private void showTodo(String message) {
-        JOptionPane.showMessageDialog(this, "TODO: " + message);
     }
 }

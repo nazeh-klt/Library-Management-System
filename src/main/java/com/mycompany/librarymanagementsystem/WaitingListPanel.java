@@ -8,6 +8,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -46,6 +47,11 @@ public class WaitingListPanel extends JPanel {
     private final JTextField priorityField = new JTextField(8);
     private final JCheckBox graduatedBox = new JCheckBox("Graduated");
 
+    // Tracks which existing row (if any) is loaded into the details fields, so Edit/Delete
+    // know which (ISBN, student) pair to act on even if the person edits the text fields
+    // afterward - those edits change what will be *written*, not what's being *targeted*.
+    private WaitingRow loadedRow = null;
+
     public WaitingListPanel() {
         setLayout(new BorderLayout(0, 12));
         setBackground(Color.WHITE);
@@ -75,13 +81,9 @@ public class WaitingListPanel extends JPanel {
         ModernButton searchButton = ModernButton.toolbar("Search");
         ModernButton refreshButton = ModernButton.toolbar("Refresh");
 
-        // TODO: Adding requests safely needs a public backend method that uses BookController data
-        // instead of BorrowController.borrow_book, which depends on buggy availability logic.
-        addButton.addActionListener(event -> showTodo("Add Request needs a safe backend method before it can be enabled."));
-        // TODO: Editing wait requests needs a backend method that reorders the priority queue safely.
-        editButton.addActionListener(event -> showSelectedTodo("Edit Selected needs a safe backend update method before it can be enabled."));
-        // TODO: Deleting wait requests needs a public backend method instead of direct heap mutation.
-        deleteButton.addActionListener(event -> showSelectedTodo("Delete Selected needs a safe backend delete method before it can be enabled."));
+        addButton.addActionListener(event -> addRequest());
+        editButton.addActionListener(event -> editSelectedRequest());
+        deleteButton.addActionListener(event -> deleteSelectedRequest());
         searchButton.addActionListener(event -> applySearchFilter());
         refreshButton.addActionListener(event -> {
             searchField.setText("");
@@ -132,6 +134,17 @@ public class WaitingListPanel extends JPanel {
         graduatedBox.setBackground(new Color(248, 249, 251));
         detailsPanel.add(graduatedBox, checkConstraints);
 
+        JLabel hint = new JLabel("New request: fill ISBN, Student, Requested (YYYY-MM-DD), Graduated, then Add Request.");
+        hint.setFont(new Font(Font.SANS_SERIF, Font.ITALIC, 11));
+        hint.setForeground(new Color(120, 120, 120));
+        GridBagConstraints hintConstraints = new GridBagConstraints();
+        hintConstraints.gridx = 2;
+        hintConstraints.gridy = 2;
+        hintConstraints.gridwidth = 8;
+        hintConstraints.anchor = GridBagConstraints.WEST;
+        hintConstraints.insets = new Insets(8, 0, 0, 0);
+        detailsPanel.add(hint, hintConstraints);
+
         return detailsPanel;
     }
 
@@ -179,7 +192,7 @@ public class WaitingListPanel extends JPanel {
                 continue;
             }
 
-            List<BookQueue> requests = new ArrayList<>(queue.heap);
+            List<BookQueue> requests = new ArrayList<>(queue.getElements());
             requests.sort((first, second) -> {
                 if (MaxPriorityQueue.hasHigherPriority(first, second)) {
                     return -1;
@@ -199,7 +212,7 @@ public class WaitingListPanel extends JPanel {
     }
 
     private String getBookTitle(int isbn) {
-        BookNode node = BookController.search_for_book(isbn);
+        BookNode node = AVLBookController.search_for_book(isbn);
         if (node == null || node.b == null) {
             return "";
         }
@@ -218,8 +231,10 @@ public class WaitingListPanel extends JPanel {
     private void showSelectedRequestDetails() {
         WaitingRow row = getSelectedWaitingRow();
         if (row == null) {
+            loadedRow = null;
             return;
         }
+        loadedRow = row;
         isbnField.setText(String.valueOf(row.isbn));
         titleField.setText(row.bookTitle);
         studentField.setText(nullToEmpty(row.request.studentName));
@@ -240,6 +255,91 @@ public class WaitingListPanel extends JPanel {
         return tableRows.get(modelRow);
     }
 
+    private void addRequest() {
+        int isbn;
+        try {
+            isbn = Integer.parseInt(isbnField.getText().trim());
+        } catch (NumberFormatException ex) {
+            showMessage("ISBN must be a number.");
+            return;
+        }
+        String student = studentField.getText().trim();
+        if (student.isEmpty()) {
+            showMessage("Enter a student name.");
+            return;
+        }
+        LocalDate requestDate;
+        try {
+            requestDate = LocalDate.parse(requestDateField.getText().trim());
+        } catch (DateTimeParseException ex) {
+            showMessage("Enter the requested date as YYYY-MM-DD.");
+            return;
+        }
+
+        String error = BorrowController.add_to_waitlist(isbn, student, graduatedBox.isSelected(), requestDate);
+        if (error != null) {
+            showMessage(error);
+            return;
+        }
+        clearDetails();
+        refreshTable();
+    }
+
+    private void editSelectedRequest() {
+        if (loadedRow == null) {
+            showMessage("Select a waiting request first.");
+            return;
+        }
+        // The (ISBN, student) pair identifies which request to update; those two fields are
+        // taken from the originally selected row rather than the text fields, since changing
+        // either here would really mean "delete this request, add a different one" rather than
+        // an edit of the same request.
+        LocalDate newRequestDate;
+        try {
+            newRequestDate = LocalDate.parse(requestDateField.getText().trim());
+        } catch (DateTimeParseException ex) {
+            showMessage("Enter the requested date as YYYY-MM-DD.");
+            return;
+        }
+
+        boolean updated = BorrowController.update_wait_request(
+                loadedRow.isbn, loadedRow.request.studentName, graduatedBox.isSelected(), newRequestDate);
+        if (!updated) {
+            showMessage("Could not find that request anymore - it may have already been processed.");
+        }
+        clearDetails();
+        refreshTable();
+    }
+
+    private void deleteSelectedRequest() {
+        if (loadedRow == null) {
+            showMessage("Select a waiting request first.");
+            return;
+        }
+        int answer = JOptionPane.showConfirmDialog(
+                this,
+                "Remove " + loadedRow.request.studentName + " from the waiting list for this book?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION
+        );
+        if (answer != JOptionPane.YES_OPTION) {
+            return;
+        }
+        BorrowController.remove_wait_request(loadedRow.isbn, loadedRow.request.studentName);
+        clearDetails();
+        refreshTable();
+    }
+
+    private void clearDetails() {
+        loadedRow = null;
+        isbnField.setText("");
+        titleField.setText("");
+        studentField.setText("");
+        requestDateField.setText("");
+        priorityField.setText("");
+        graduatedBox.setSelected(false);
+    }
+
     private String formatDate(LocalDate date) {
         return date == null ? "" : date.toString();
     }
@@ -248,16 +348,8 @@ public class WaitingListPanel extends JPanel {
         return value == null ? "" : value;
     }
 
-    private void showTodo(String message) {
-        JOptionPane.showMessageDialog(this, "TODO: " + message);
-    }
-
-    private void showSelectedTodo(String message) {
-        if (getSelectedWaitingRow() == null) {
-            JOptionPane.showMessageDialog(this, "Select a waiting request first.");
-            return;
-        }
-        showTodo(message);
+    private void showMessage(String message) {
+        JOptionPane.showMessageDialog(this, message);
     }
 
     private static class WaitingRow {
