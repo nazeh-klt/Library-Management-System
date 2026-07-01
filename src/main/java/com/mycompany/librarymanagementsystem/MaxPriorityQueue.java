@@ -97,10 +97,13 @@ public class MaxPriorityQueue {
         heap.set(j, temp);
     }
 
-    // BUG: This returns the live heap list, so callers can accidentally reorder or corrupt the queue.
-    // GUI code should only copy/read the public heap data and must not mutate it.
+    // Returns a copy of the heap contents, not the live backing list. Previously this returned
+    // `heap` directly, which let callers sort or reorder it - BorrowController.processWaitingList
+    // was doing exactly that (Collections.sort on the returned list), which silently broke the
+    // heap's internal invariant every time it ran. Copying costs O(n) but the waitlist per book
+    // is expected to be small, and this is only called when processing waits or duplicate-checking.
     public ArrayList<BookQueue> getElements() {
-        return heap;
+        return new ArrayList<>(heap);
     }
     
     public static boolean hasHigherPriority(BookQueue r1, BookQueue r2){

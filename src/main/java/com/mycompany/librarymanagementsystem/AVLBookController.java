@@ -15,6 +15,22 @@ public class AVLBookController {
     public static BookNode search_for_book(int ISBN) {
         return search_for_book_avl(root, ISBN);
     }
+
+    // Modify copy count directly without touching tree structure (copy count is not part of
+    // the ordering key, so this cannot desynchronize the tree). Rejects negative values.
+    // Does NOT check against active borrows - that check needs BorrowController's borrow_log,
+    // so it belongs one layer up (see BorrowController.can_reduce_copies).
+    public static boolean update_copy_count(int ISBN, int newCount) {
+        if (newCount < 0) {
+            return false;
+        }
+        BookNode node = search_for_book_avl(root, ISBN);
+        if (node == null) {
+            return false;
+        }
+        node.b.copy = newCount;
+        return true;
+    }
     
     public static void print(){
         print(root);
@@ -121,9 +137,8 @@ public class AVLBookController {
         return current;
     }
 
-    // BUG: This delete method decrements copy counts while also removing/replacing tree nodes.
-    // For a node with two children it drops the left subtree by assigning root = remove_book_from_library(root.right, ...),
-    // so GUI code should not call delete_avl_book until this backend logic is corrected.
+    // Removes the book node entirely (a full delete of the title from the library, not a
+    // "return one copy" operation - use update_copy_count for adjusting copy counts).
     private static BookNode remove_book_from_library(BookNode root, int ISBN) {
         if (root == null) {
             return root;
@@ -135,13 +150,11 @@ public class AVLBookController {
             root.right = remove_book_from_library(root.right, ISBN);
         } else {
             if (root.left == null || root.right == null) {
-                root.b.copy--;
                 root = (root.left != null) ? root.left : root.right;
             } else {
-                root.b.copy--;
                 BookNode current = getLeftMost(root.right);
                 root.b = current.b;
-                root = remove_book_from_library(root.right, root.b.ISBN);
+                root.right = remove_book_from_library(root.right, current.b.ISBN);
             }
         }
 
@@ -151,17 +164,21 @@ public class AVLBookController {
 
         root.height = 1 + Math.max(height(root.left), height(root.right));
         int balance = getBalance(root);
-        if (balance > 1 && ISBN < root.left.b.ISBN) {
+
+        // Deletion rebalancing must look at the surviving subtree's own balance factor,
+        // not at where the deleted key was relative to the child - that heuristic only
+        // works for insertion, where the inserted key tells you which path grew.
+        if (balance > 1 && getBalance(root.left) >= 0) {
             return rightRotate(root);
         }
-        if (balance > 1 && ISBN > root.left.b.ISBN) {
+        if (balance > 1 && getBalance(root.left) < 0) {
             root.left = leftRotate(root.left);
             return rightRotate(root);
         }
-        if (balance < -1 && ISBN > root.right.b.ISBN) {
+        if (balance < -1 && getBalance(root.right) <= 0) {
             return leftRotate(root);
         }
-        if (balance < -1 && ISBN < root.right.b.ISBN) {
+        if (balance < -1 && getBalance(root.right) > 0) {
             root.right = rightRotate(root.right);
             return leftRotate(root);
         }

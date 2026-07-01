@@ -36,9 +36,10 @@ public class BorrowController {
         return activeBorrows < node.b.copy;
     }
 
-    // BUG: The method name says "exceeded", but it returns true when the student is still allowed
-    // to borrow. This inverted meaning makes direct GUI validation easy to misuse.
-    public static boolean check_max_borrowings_exceeded(String name) {
+    // Renamed from check_max_borrowings_exceeded, whose name said the opposite of what it
+    // returned (it returned true when the student was still allowed to borrow, not when the
+    // limit had been hit). Behavior is unchanged - only the name matches the meaning now.
+    public static boolean can_borrow_more(String name) {
         int counter = 0;
         ArrayList<Integer> ids = borrowed_id_by_name.get(name);
         if (ids == null) {
@@ -52,11 +53,31 @@ public class BorrowController {
         return counter < max_borrowings;
     }
 
+    // Pairs with BookController.update_copy_count / AVLBookController.update_copy_count.
+    // Those methods only know about the book's own copy field, not about active borrows,
+    // so this cross-controller check belongs here rather than in either book controller.
+    public static boolean can_reduce_copies(int ISBN, int newCount) {
+        if (newCount < 0) {
+            return false;
+        }
+        int activeBorrows = 0;
+        ArrayList<Integer> ids = borrowed_id_by_ISBN.get(ISBN);
+        if (ids != null) {
+            for (int id : ids) {
+                Borrow b = borrow_log.get(id);
+                if (b != null && b.return_date == null) {
+                    activeBorrows++;
+                }
+            }
+        }
+        return newCount >= activeBorrows;
+    }
+
     // BUG: This method depends on check_available_book_by_ISBN, so it inherits the separate-root
     // availability issue. The request_date parameter is also ignored for successful borrows.
     public static void borrow_book(Book book, String student_name, LocalDate request_date, LocalDate expected_return, boolean is_graduated) {
         if (!check_available_book_by_ISBN(book.ISBN)) {
-            if (!check_max_borrowings_exceeded(student_name)) {
+            if (!can_borrow_more(student_name)) {
                 System.out.println("Borrow limited exceeded, can't be added to waiting list, you must return a book if you want to borrow another");
                 return;
             }
@@ -72,7 +93,7 @@ public class BorrowController {
             return;
         }
 
-        if (!check_max_borrowings_exceeded(student_name)) {
+        if (!can_borrow_more(student_name)) {
             System.out.println("Borrow limited exceeded, you must return a book if you want to borrow another");
             return;
         }
@@ -202,8 +223,11 @@ public class BorrowController {
         return heap;
     }
 
-    // BUG: This method sorts the live heap list returned by getElements(), which can break the
-    // priority queue structure. It also reads from System.in, so GUI code must not call it.
+    // The sort below now operates on a copy (getElements() returns a defensive copy - see
+    // MaxPriorityQueue), so it no longer corrupts the underlying heap.
+    // REMAINING ISSUE: this still reads from System.in via readExpectedReturnDate, which will
+    // block if called from the Swing event thread - needs a non-console input path before any
+    // GUI code calls it. That's part of the GUI wiring pass, not a backend data-structure bug.
     private static void processWaitingList(int ISBN) {
         MaxPriorityQueue heap = wait_requests_queue_by_ISBN.get(ISBN);
         if (heap == null || heap.isEmpty() || !check_available_book_by_ISBN(ISBN)) {
@@ -227,7 +251,7 @@ public class BorrowController {
 
         // 2. Find the first eligible waiter
         for (BookQueue next : waiters) {
-            if (check_max_borrowings_exceeded(next.studentName)) {
+            if (can_borrow_more(next.studentName)) {
                 // This student can borrow now
 
                 // Ask the user for the expected return date

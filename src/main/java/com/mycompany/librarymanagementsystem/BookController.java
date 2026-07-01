@@ -12,6 +12,20 @@ public class BookController {
     public static void delete_book(int ISBN) {
         root = remove_book_from_library_bst(root, ISBN);
     }
+
+    // Modify copy count directly without touching tree structure. Rejects negative values.
+    // Does NOT check against active borrows - see BorrowController.can_reduce_copies for that.
+    public static boolean update_copy_count(int ISBN, int newCount) {
+        if (newCount < 0) {
+            return false;
+        }
+        BookNode node = search_for_book_bst(root, ISBN);
+        if (node == null) {
+            return false;
+        }
+        node.b.copy = newCount;
+        return true;
+    }
     public static void print(){
         print(root);
     }
@@ -76,13 +90,9 @@ public class BookController {
                 return root.left;
             }
 
-            // Node with 2 children
+            
             BookNode current = getLeftMost(root.right);
-            root.b.ISBN = current.b.ISBN;
-            root.b.author = current.b.author;
-            root.b.category = current.b.category;
-            root.b.title = current.b.title;
-            root.b.copy = current.b.copy;
+            root.b = current.b;
             root.right = remove_book_from_library_bst(root.right, current.b.ISBN);
         }
         return root;
