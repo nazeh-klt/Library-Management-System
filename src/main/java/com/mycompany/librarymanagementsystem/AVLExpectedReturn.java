@@ -82,7 +82,7 @@ class AVLExpectedReturn {
 
         int bal = balance(root);
 
-        if (bal > 1 && date.compareTo(root.left.date) < 0) {
+        if (bal > 1 && date.compareTo(root.left.date) <= 0) {
             return r_rotate(root);
         }
 
@@ -90,7 +90,7 @@ class AVLExpectedReturn {
             return l_rotate(root);
         }
 
-        if (bal > 1 && date.compareTo(root.left.date) > 0) {
+        if (bal > 1 && date.compareTo(root.left.date) >= 0) {
             root.left = l_rotate(root.left);
             return r_rotate(root);
         }
@@ -101,6 +101,54 @@ class AVLExpectedReturn {
         }
 
         return root;
+    }
+    
+    static Node delete(Node root, LocalDate exp){
+        if(root == null)
+            return root;
+        int cmp = exp.compareTo(root.date);
+        if(cmp > 0)
+            root.right = delete(root.right, exp);
+        else if(cmp < 0)
+            root.left = delete(root.left, exp);
+        else{
+            if(root.left == null || root.right == null)
+                root = (root.left != null) ? root.left : root.right;
+            else{
+                Node curr = getLeftMost(root);
+                Node temp = root;
+                root = curr;
+                root.right = temp.right;
+                root.left = temp.left;
+                root.right = delete(root.right, curr.date);
+            }
+        }
+        if(root == null)
+            return root;
+        root.height = 1 + Math.max(height(root.left), height(root.right));
+        int b = balance(root);
+        if (b > 1 && balance(root.left) >= 0) {
+            return r_rotate(root);
+        }
+        if (b > 1 && balance(root.left) < 0) {
+            root.left = l_rotate(root.left);
+            return r_rotate(root);
+        }
+        if (b < -1 && balance(root.right) <= 0) {
+            return l_rotate(root);
+        }
+        if (b < -1 && balance(root.right) > 0) {
+            root.right = r_rotate(root.right);
+            return l_rotate(root);
+        }
+        return root;
+    }
+    
+    static Node getLeftMost(Node root){
+        Node curr = root.right;
+        while(curr.left != null)
+            curr = curr.left;
+        return curr;
     }
 
     static Node search(Node root, LocalDate date) {
