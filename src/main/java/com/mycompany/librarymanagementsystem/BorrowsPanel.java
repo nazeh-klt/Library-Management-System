@@ -3,10 +3,10 @@ package com.mycompany.librarymanagementsystem;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Window;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -14,6 +14,7 @@ import java.util.Comparator;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.JCheckBox;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -22,6 +23,7 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
@@ -38,29 +40,15 @@ public class BorrowsPanel extends JPanel {
     private final JTable borrowsTable = new JTable(tableModel);
     private final TableRowSorter<DefaultTableModel> rowSorter = new TableRowSorter<>(tableModel);
 
-    private final JTextField idField = new JTextField(8);
-    private final JTextField isbnField = new JTextField(10);
-    private final JTextField studentField = new JTextField(16);
-    private final JTextField expectedReturnField = new JTextField(12);
-    private final JTextField borrowDateField = new JTextField(12);
-    private final JTextField returnDateField = new JTextField(12);
-    private final JCheckBox graduatedBox = new JCheckBox("Graduated");
-
     public BorrowsPanel() {
         setLayout(new BorderLayout(0, 12));
         setBackground(Color.WHITE);
 
         borrowsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         borrowsTable.setRowSorter(rowSorter);
-        borrowsTable.getSelectionModel().addListSelectionListener(event -> {
-            if (!event.getValueIsAdjusting()) {
-                showSelectedBorrowDetails();
-            }
-        });
 
         add(createToolbar(), BorderLayout.NORTH);
         add(new JScrollPane(borrowsTable), BorderLayout.CENTER);
-        add(createDetailsPanel(), BorderLayout.SOUTH);
 
         refreshTable();
     }
@@ -83,8 +71,7 @@ public class BorrowsPanel extends JPanel {
         // update operation, only insert. An in-place edit would leave a stale entry in that index
         // pointing at the same recordId under the old date. Fixing this properly means adding a
         // delete operation to AVLExpectedReturn first, which is a separate piece of work.
-        editButton.addActionListener(event -> showSelectedTodo(
-                "Editing dates isn't safe yet: the expected-return date index (AVLExpectedReturn) has no delete/update operation, only insert."));
+        editButton.addActionListener(event -> editSelectedBorrow());
         deleteButton.addActionListener(event -> deleteSelectedBorrow());
         searchButton.addActionListener(event -> applySearchFilter());
         refreshButton.addActionListener(event -> {
@@ -104,68 +91,20 @@ public class BorrowsPanel extends JPanel {
         return toolbar;
     }
 
-    private JPanel createDetailsPanel() {
-        JPanel detailsPanel = new JPanel(new GridBagLayout());
-        detailsPanel.setBackground(new Color(248, 249, 251));
-        detailsPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(220, 224, 230)),
-                BorderFactory.createEmptyBorder(10, 12, 10, 12)
-        ));
-
-        JLabel title = new JLabel("Borrow Details");
-        title.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
-        GridBagConstraints titleConstraints = new GridBagConstraints();
-        titleConstraints.gridx = 0;
-        titleConstraints.gridy = 0;
-        titleConstraints.gridwidth = 12;
-        titleConstraints.anchor = GridBagConstraints.WEST;
-        titleConstraints.insets = new Insets(0, 0, 8, 0);
-        detailsPanel.add(title, titleConstraints);
-
-        addDetailField(detailsPanel, "ID", idField, 0, 1);
-        addDetailField(detailsPanel, "ISBN", isbnField, 2, 1);
-        addDetailField(detailsPanel, "Student", studentField, 4, 1);
-        addDetailField(detailsPanel, "Expected", expectedReturnField, 6, 1);
-        addDetailField(detailsPanel, "Borrowed", borrowDateField, 8, 1);
-        addDetailField(detailsPanel, "Returned", returnDateField, 10, 1);
-
-        GridBagConstraints checkConstraints = new GridBagConstraints();
-        checkConstraints.gridx = 0;
-        checkConstraints.gridy = 2;
-        checkConstraints.gridwidth = 2;
-        checkConstraints.anchor = GridBagConstraints.WEST;
-        checkConstraints.insets = new Insets(8, 0, 0, 0);
-        graduatedBox.setBackground(new Color(248, 249, 251));
-        detailsPanel.add(graduatedBox, checkConstraints);
-
-        JLabel hint = new JLabel("To borrow: fill ISBN, Student, Expected (YYYY-MM-DD), Graduated, then click Borrow Book.");
-        hint.setFont(new Font(Font.SANS_SERIF, Font.ITALIC, 11));
-        hint.setForeground(new Color(120, 120, 120));
-        GridBagConstraints hintConstraints = new GridBagConstraints();
-        hintConstraints.gridx = 2;
-        hintConstraints.gridy = 2;
-        hintConstraints.gridwidth = 10;
-        hintConstraints.anchor = GridBagConstraints.WEST;
-        hintConstraints.insets = new Insets(8, 0, 0, 0);
-        detailsPanel.add(hint, hintConstraints);
-
-        return detailsPanel;
-    }
-
-    private void addDetailField(JPanel panel, String label, JTextField field, int gridX, int gridY) {
+    private void addDialogField(JPanel panel, String label, JTextField field, int gridY) {
         GridBagConstraints labelConstraints = new GridBagConstraints();
-        labelConstraints.gridx = gridX;
+        labelConstraints.gridx = 0;
         labelConstraints.gridy = gridY;
         labelConstraints.anchor = GridBagConstraints.WEST;
-        labelConstraints.insets = new Insets(0, 0, 0, 4);
+        labelConstraints.insets = new Insets(0, 0, 8, 10);
         panel.add(new JLabel(label), labelConstraints);
 
         GridBagConstraints fieldConstraints = new GridBagConstraints();
-        fieldConstraints.gridx = gridX + 1;
+        fieldConstraints.gridx = 1;
         fieldConstraints.gridy = gridY;
         fieldConstraints.weightx = 1.0;
         fieldConstraints.fill = GridBagConstraints.HORIZONTAL;
-        fieldConstraints.insets = new Insets(0, 0, 0, 10);
+        fieldConstraints.insets = new Insets(0, 0, 8, 0);
         panel.add(field, fieldConstraints);
     }
 
@@ -201,20 +140,6 @@ public class BorrowsPanel extends JPanel {
         }
     }
 
-    private void showSelectedBorrowDetails() {
-        Borrow borrow = getSelectedBorrow();
-        if (borrow == null) {
-            return;
-        }
-        idField.setText(String.valueOf(borrow.id));
-        isbnField.setText(borrow.book == null ? "" : String.valueOf(borrow.book.ISBN));
-        studentField.setText(nullToEmpty(borrow.student_name));
-        expectedReturnField.setText(formatDate(borrow.expected_return));
-        borrowDateField.setText(formatDate(borrow.borrow_date));
-        returnDateField.setText(formatDate(borrow.return_date));
-        graduatedBox.setSelected(borrow.is_graduated);
-    }
-
     private Borrow getSelectedBorrow() {
         int selectedRow = borrowsTable.getSelectedRow();
         if (selectedRow < 0) {
@@ -226,49 +151,44 @@ public class BorrowsPanel extends JPanel {
     }
 
     private void borrowBook() {
-        int isbn;
-        try {
-            isbn = Integer.parseInt(isbnField.getText().trim());
-        } catch (NumberFormatException ex) {
-            showMessage("ISBN must be a number.");
-            return;
-        }
-        String student = studentField.getText().trim();
-        if (student.isEmpty()) {
-            showMessage("Enter a student name.");
-            return;
-        }
-        LocalDate expected;
-        try {
-            expected = LocalDate.parse(expectedReturnField.getText().trim());
-        } catch (DateTimeParseException ex) {
-            showMessage("Enter the expected return date as YYYY-MM-DD.");
+        BorrowFormData data = showBorrowDialog("Borrow Book", null, false);
+        if (data == null) {
             return;
         }
 
-        BookNode node = AVLBookController.search_for_book(isbn);
+        BookNode node = AVLBookController.search_for_book(data.isbn);
         if (node == null) {
             showMessage("No book with that ISBN exists. Add it in the Books tab first.");
             return;
         }
 
         BorrowController.BorrowResult result = BorrowController.borrow_book(
-                node.b, student, LocalDate.now(), expected, graduatedBox.isSelected());
+                node.b, data.student, LocalDate.now(), data.expectedReturn, data.graduated);
         refreshTable();
 
         switch (result) {
             case BORROWED -> {
-                clearDetails();
             }
-            case ADDED_TO_WAITLIST -> {
-                clearDetails();
-                showMessage("Book was unavailable - " + student + " was added to the waiting list.");
-            }
+            case ADDED_TO_WAITLIST ->
+                showMessage("Book was unavailable - " + data.student + " was added to the waiting list.");
             case ALREADY_ON_WAITLIST ->
-                showMessage(student + " is already on the waiting list for this book.");
+                showMessage(data.student + " is already on the waiting list for this book.");
             case BORROW_LIMIT_EXCEEDED ->
-                showMessage(student + " already has the maximum number of active borrows, so they can't borrow or be added to the waiting list. They must return a book first.");
+                showMessage(data.student + " already has the maximum number of active borrows, so they can't borrow or be added to the waiting list. They must return a book first.");
         }
+    }
+
+    private void editSelectedBorrow() {
+        Borrow borrow = getSelectedBorrow();
+        if (borrow == null) {
+            showMessage("Select a borrow record first.");
+            return;
+        }
+        BorrowFormData data = showBorrowDialog("Edit Borrow", borrow, true);
+        if (data == null) {
+            return;
+        }
+        showMessage("Not yet available: editing borrow records isn't safe because the expected-return date index has no delete/update operation.");
     }
 
     private void returnSelectedBorrow() {
@@ -324,18 +244,111 @@ public class BorrowsPanel extends JPanel {
             return;
         }
         BorrowController.delete_borrow_record(borrow.id);
-        clearDetails();
         refreshTable();
     }
 
-    private void clearDetails() {
-        idField.setText("");
-        isbnField.setText("");
-        studentField.setText("");
-        expectedReturnField.setText("");
-        borrowDateField.setText("");
-        returnDateField.setText("");
-        graduatedBox.setSelected(false);
+    private BorrowFormData showBorrowDialog(String title, Borrow borrow, boolean editMode) {
+        JDialog dialog = createDialog(title);
+        JPanel form = createDialogPanel();
+
+        JTextField isbnField = new JTextField(18);
+        JTextField studentField = new JTextField(18);
+        JTextField expectedReturnField = new JTextField(18);
+        JCheckBox graduatedBox = new JCheckBox("Graduated");
+        graduatedBox.setBackground(new Color(248, 249, 251));
+
+        if (borrow != null) {
+            isbnField.setText(borrow.book == null ? "" : String.valueOf(borrow.book.ISBN));
+            studentField.setText(nullToEmpty(borrow.student_name));
+            expectedReturnField.setText(formatDate(borrow.expected_return));
+            graduatedBox.setSelected(borrow.is_graduated);
+        }
+
+        addDialogField(form, "ISBN", isbnField, 0);
+        addDialogField(form, "Student", studentField, 1);
+        addDialogField(form, "Expected Return", expectedReturnField, 2);
+        GridBagConstraints checkConstraints = new GridBagConstraints();
+        checkConstraints.gridx = 1;
+        checkConstraints.gridy = 3;
+        checkConstraints.anchor = GridBagConstraints.WEST;
+        checkConstraints.insets = new Insets(0, 0, 8, 0);
+        form.add(graduatedBox, checkConstraints);
+
+        if (editMode) {
+            JTextField borrowDateField = new JTextField(formatDate(borrow.borrow_date), 18);
+            JTextField returnDateField = new JTextField(formatDate(borrow.return_date), 18);
+            borrowDateField.setEditable(false);
+            returnDateField.setEditable(false);
+            addDialogField(form, "Borrow Date", borrowDateField, 4);
+            addDialogField(form, "Return Date", returnDateField, 5);
+        }
+
+        final BorrowFormData[] result = new BorrowFormData[1];
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        buttons.setBackground(new Color(248, 249, 251));
+        ModernButton saveButton = ModernButton.toolbar("Save");
+        ModernButton cancelButton = ModernButton.toolbar("Cancel");
+        saveButton.addActionListener(event -> {
+            BorrowFormData data = readBorrowFormData(isbnField, studentField, expectedReturnField, graduatedBox);
+            if (data != null) {
+                result[0] = data;
+                dialog.dispose();
+            }
+        });
+        cancelButton.addActionListener(event -> dialog.dispose());
+        buttons.add(saveButton);
+        buttons.add(cancelButton);
+
+        dialog.add(form, BorderLayout.CENTER);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+        return result[0];
+    }
+
+    private BorrowFormData readBorrowFormData(JTextField isbnField, JTextField studentField,
+            JTextField expectedReturnField, JCheckBox graduatedBox) {
+        int isbn;
+        try {
+            isbn = Integer.parseInt(isbnField.getText().trim());
+        } catch (NumberFormatException ex) {
+            showMessage("ISBN must be a number.");
+            return null;
+        }
+        String student = studentField.getText().trim();
+        if (student.isEmpty()) {
+            showMessage("Enter a student name.");
+            return null;
+        }
+        LocalDate expected;
+        try {
+            expected = LocalDate.parse(expectedReturnField.getText().trim());
+        } catch (DateTimeParseException ex) {
+            showMessage("Enter the expected return date as YYYY-MM-DD.");
+            return null;
+        }
+        return new BorrowFormData(isbn, student, expected, graduatedBox.isSelected());
+    }
+
+    private JDialog createDialog(String title) {
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        JDialog dialog = new JDialog(owner, title, java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout(0, 12));
+        dialog.setResizable(false);
+        dialog.getContentPane().setBackground(new Color(248, 249, 251));
+        dialog.getRootPane().setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+        return dialog;
+    }
+
+    private JPanel createDialogPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(new Color(248, 249, 251));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220, 224, 230)),
+                BorderFactory.createEmptyBorder(12, 12, 4, 12)
+        ));
+        return panel;
     }
 
     private String formatDate(LocalDate date) {
@@ -350,11 +363,17 @@ public class BorrowsPanel extends JPanel {
         JOptionPane.showMessageDialog(this, message);
     }
 
-    private void showSelectedTodo(String message) {
-        if (getSelectedBorrow() == null) {
-            JOptionPane.showMessageDialog(this, "Select a borrow record first.");
-            return;
+    private static class BorrowFormData {
+        final int isbn;
+        final String student;
+        final LocalDate expectedReturn;
+        final boolean graduated;
+
+        BorrowFormData(int isbn, String student, LocalDate expectedReturn, boolean graduated) {
+            this.isbn = isbn;
+            this.student = student;
+            this.expectedReturn = expectedReturn;
+            this.graduated = graduated;
         }
-        JOptionPane.showMessageDialog(this, "Not yet available: " + message);
     }
 }

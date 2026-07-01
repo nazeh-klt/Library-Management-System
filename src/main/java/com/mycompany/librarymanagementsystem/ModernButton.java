@@ -22,7 +22,10 @@ public class ModernButton extends JButton {
     private final Color normalBackground;
     private final Color hoverBackground;
     private final Color pressedBackground;
+    private final Color selectedBackground;
+    private final int arc;
     private boolean hovered;
+    private boolean menuSelected;
 
     public ModernButton(String text) {
         this(text, 130, 36);
@@ -33,10 +36,17 @@ public class ModernButton extends JButton {
     }
 
     public ModernButton(String text, int width, int height, Color normalBackground, Color hoverBackground, Color pressedBackground) {
+        this(text, width, height, normalBackground, hoverBackground, pressedBackground, pressedBackground, 16);
+    }
+
+    public ModernButton(String text, int width, int height, Color normalBackground, Color hoverBackground, Color pressedBackground,
+            Color selectedBackground, int arc) {
         super(text);
         this.normalBackground = normalBackground;
         this.hoverBackground = hoverBackground;
         this.pressedBackground = pressedBackground;
+        this.selectedBackground = selectedBackground;
+        this.arc = arc;
         setPreferredSize(new Dimension(width, height));
         setMinimumSize(new Dimension(width, height));
         setMaximumSize(new Dimension(width, height));
@@ -65,19 +75,43 @@ public class ModernButton extends JButton {
     }
 
     public static ModernButton sidebar(String text) {
-        return new ModernButton(text, 146, 40, new Color(59, 91, 132), new Color(47, 78, 118), new Color(39, 66, 101));
+        ModernButton button = new ModernButton(text, 146, 36,
+                new Color(0, 0, 0, 0),
+                new Color(92, 101, 112),
+                new Color(73, 83, 95),
+                new Color(45, 69, 99),
+                0);
+        button.setMargin(new Insets(0, 0, 0, 0));
+        button.setBorder(new EmptyBorder(new Insets(4, 0, 4, 0)));
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
+        button.setFocusPainted(false);
+        button.setOpaque(false);
+        return button;
     }
 
     public static ModernButton toolbar(String text) {
         return new ModernButton(text, 128, 34);
     }
 
+    public void setMenuSelected(boolean menuSelected) {
+        this.menuSelected = menuSelected;
+        repaint();
+    }
+
     @Override
     protected void paintComponent(Graphics graphics) {
         Graphics2D g2 = (Graphics2D) graphics.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setColor(getButtonColor());
-        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+        Color buttonColor = getButtonColor();
+        if (buttonColor.getAlpha() > 0) {
+            g2.setColor(buttonColor);
+            if (arc <= 0) {
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            } else {
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), arc, arc);
+            }
+        }
         g2.dispose();
         super.paintComponent(graphics);
     }
@@ -85,6 +119,9 @@ public class ModernButton extends JButton {
     private Color getButtonColor() {
         if (getModel().isPressed()) {
             return pressedBackground;
+        }
+        if (menuSelected) {
+            return selectedBackground;
         }
         if (hovered || getModel().isRollover()) {
             return hoverBackground;

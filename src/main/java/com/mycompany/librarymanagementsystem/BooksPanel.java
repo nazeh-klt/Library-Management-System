@@ -3,13 +3,14 @@ package com.mycompany.librarymanagementsystem;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Window;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.BorderFactory;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -18,6 +19,7 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
@@ -38,27 +40,15 @@ public class BooksPanel extends JPanel {
     private final JTable booksTable = new JTable(tableModel);
     private final TableRowSorter<DefaultTableModel> rowSorter = new TableRowSorter<>(tableModel);
 
-    private final JTextField isbnField = new JTextField(12);
-    private final JTextField titleField = new JTextField(20);
-    private final JTextField authorField = new JTextField(20);
-    private final JTextField categoryField = new JTextField(16);
-    private final JTextField copyField = new JTextField(8);
-
     public BooksPanel() {
         setLayout(new BorderLayout(0, 12));
         setBackground(Color.WHITE);
 
         booksTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         booksTable.setRowSorter(rowSorter);
-        booksTable.getSelectionModel().addListSelectionListener(event -> {
-            if (!event.getValueIsAdjusting()) {
-                showSelectedBookDetails();
-            }
-        });
 
         add(createToolbar(), BorderLayout.NORTH);
         add(new JScrollPane(booksTable), BorderLayout.CENTER);
-        add(createDetailsPanel(), BorderLayout.SOUTH);
 
         refreshTable();
     }
@@ -93,46 +83,20 @@ public class BooksPanel extends JPanel {
         return toolbar;
     }
 
-    private JPanel createDetailsPanel() {
-        JPanel detailsPanel = new JPanel(new GridBagLayout());
-        detailsPanel.setBackground(new Color(248, 249, 251));
-        detailsPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(220, 224, 230)),
-                BorderFactory.createEmptyBorder(10, 12, 10, 12)
-        ));
-
-        JLabel title = new JLabel("Book Details");
-        title.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
-        GridBagConstraints titleConstraints = new GridBagConstraints();
-        titleConstraints.gridx = 0;
-        titleConstraints.gridy = 0;
-        titleConstraints.gridwidth = 10;
-        titleConstraints.anchor = GridBagConstraints.WEST;
-        titleConstraints.insets = new Insets(0, 0, 8, 0);
-        detailsPanel.add(title, titleConstraints);
-
-        addDetailField(detailsPanel, "ISBN", isbnField, 0, 1);
-        addDetailField(detailsPanel, "Title", titleField, 2, 1);
-        addDetailField(detailsPanel, "Author", authorField, 4, 1);
-        addDetailField(detailsPanel, "Category", categoryField, 6, 1);
-        addDetailField(detailsPanel, "Copies", copyField, 8, 1);
-        return detailsPanel;
-    }
-
-    private void addDetailField(JPanel panel, String label, JTextField field, int gridX, int gridY) {
+    private void addDialogField(JPanel panel, String label, JTextField field, int gridY) {
         GridBagConstraints labelConstraints = new GridBagConstraints();
-        labelConstraints.gridx = gridX;
+        labelConstraints.gridx = 0;
         labelConstraints.gridy = gridY;
         labelConstraints.anchor = GridBagConstraints.WEST;
-        labelConstraints.insets = new Insets(0, 0, 0, 4);
+        labelConstraints.insets = new Insets(0, 0, 8, 10);
         panel.add(new JLabel(label), labelConstraints);
 
         GridBagConstraints fieldConstraints = new GridBagConstraints();
-        fieldConstraints.gridx = gridX + 1;
+        fieldConstraints.gridx = 1;
         fieldConstraints.gridy = gridY;
         fieldConstraints.weightx = 1.0;
         fieldConstraints.fill = GridBagConstraints.HORIZONTAL;
-        fieldConstraints.insets = new Insets(0, 0, 0, 10);
+        fieldConstraints.insets = new Insets(0, 0, 8, 0);
         panel.add(field, fieldConstraints);
     }
 
@@ -174,20 +138,8 @@ public class BooksPanel extends JPanel {
         }
     }
 
-    private void showSelectedBookDetails() {
-        BookNode node = getSelectedBookNode();
-        if (node == null) {
-            return;
-        }
-        isbnField.setText(String.valueOf(node.b.ISBN));
-        titleField.setText(nullToEmpty(node.b.title));
-        authorField.setText(nullToEmpty(node.b.author));
-        categoryField.setText(nullToEmpty(node.b.category));
-        copyField.setText(String.valueOf(node.b.copy));
-    }
-
     private void addBook() {
-        BookFormData data = readFormData();
+        BookFormData data = showBookDialog("Add Book", null);
         if (data == null) {
             return;
         }
@@ -208,7 +160,7 @@ public class BooksPanel extends JPanel {
         }
 
         int oldIsbn = selected.b.ISBN;
-        BookFormData data = readFormData();
+        BookFormData data = showBookDialog("Edit Book", selected.b);
         if (data == null) {
             return;
         }
@@ -270,8 +222,75 @@ public class BooksPanel extends JPanel {
         }
 
         AVLBookController.delete_avl_book(selected.b.ISBN);
-        clearDetails();
         refreshTable();
+    }
+
+    private BookFormData showBookDialog(String title, Book book) {
+        JDialog dialog = createDialog(title);
+        JPanel form = createDialogPanel();
+
+        JTextField isbnField = new JTextField(18);
+        JTextField titleField = new JTextField(18);
+        JTextField authorField = new JTextField(18);
+        JTextField categoryField = new JTextField(18);
+        JTextField copyField = new JTextField(18);
+
+        if (book != null) {
+            isbnField.setText(String.valueOf(book.ISBN));
+            titleField.setText(nullToEmpty(book.title));
+            authorField.setText(nullToEmpty(book.author));
+            categoryField.setText(nullToEmpty(book.category));
+            copyField.setText(String.valueOf(book.copy));
+        }
+
+        addDialogField(form, "ISBN", isbnField, 0);
+        addDialogField(form, "Title", titleField, 1);
+        addDialogField(form, "Author", authorField, 2);
+        addDialogField(form, "Category", categoryField, 3);
+        addDialogField(form, "Copies", copyField, 4);
+
+        final BookFormData[] result = new BookFormData[1];
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        buttons.setBackground(new Color(248, 249, 251));
+        ModernButton saveButton = ModernButton.toolbar("Save");
+        ModernButton cancelButton = ModernButton.toolbar("Cancel");
+        saveButton.addActionListener(event -> {
+            BookFormData data = readFormData(isbnField, titleField, authorField, categoryField, copyField);
+            if (data != null) {
+                result[0] = data;
+                dialog.dispose();
+            }
+        });
+        cancelButton.addActionListener(event -> dialog.dispose());
+        buttons.add(saveButton);
+        buttons.add(cancelButton);
+
+        dialog.add(form, BorderLayout.CENTER);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+        return result[0];
+    }
+
+    private JDialog createDialog(String title) {
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        JDialog dialog = new JDialog(owner, title, java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout(0, 12));
+        dialog.setResizable(false);
+        dialog.getContentPane().setBackground(new Color(248, 249, 251));
+        dialog.getRootPane().setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+        return dialog;
+    }
+
+    private JPanel createDialogPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(new Color(248, 249, 251));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220, 224, 230)),
+                BorderFactory.createEmptyBorder(12, 12, 4, 12)
+        ));
+        return panel;
     }
 
     private BookNode getSelectedBookNode() {
@@ -284,7 +303,8 @@ public class BooksPanel extends JPanel {
         return AVLBookController.search_for_book(isbn);
     }
 
-    private BookFormData readFormData() {
+    private BookFormData readFormData(JTextField isbnField, JTextField titleField, JTextField authorField,
+            JTextField categoryField, JTextField copyField) {
         try {
             int isbn = Integer.parseInt(isbnField.getText().trim());
             int copies = Integer.parseInt(copyField.getText().trim());
@@ -313,14 +333,6 @@ public class BooksPanel extends JPanel {
                 return;
             }
         }
-    }
-
-    private void clearDetails() {
-        isbnField.setText("");
-        titleField.setText("");
-        authorField.setText("");
-        categoryField.setText("");
-        copyField.setText("");
     }
 
     private String nullToEmpty(String value) {

@@ -3,10 +3,10 @@ package com.mycompany.librarymanagementsystem;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Window;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.JCheckBox;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -23,6 +24,7 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
@@ -40,33 +42,15 @@ public class WaitingListPanel extends JPanel {
     private final TableRowSorter<DefaultTableModel> rowSorter = new TableRowSorter<>(tableModel);
     private final List<WaitingRow> tableRows = new ArrayList<>();
 
-    private final JTextField isbnField = new JTextField(10);
-    private final JTextField titleField = new JTextField(18);
-    private final JTextField studentField = new JTextField(18);
-    private final JTextField requestDateField = new JTextField(12);
-    private final JTextField priorityField = new JTextField(8);
-    private final JCheckBox graduatedBox = new JCheckBox("Graduated");
-
-    // Tracks which existing row (if any) is loaded into the details fields, so Edit/Delete
-    // know which (ISBN, student) pair to act on even if the person edits the text fields
-    // afterward - those edits change what will be *written*, not what's being *targeted*.
-    private WaitingRow loadedRow = null;
-
     public WaitingListPanel() {
         setLayout(new BorderLayout(0, 12));
         setBackground(Color.WHITE);
 
         waitingTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         waitingTable.setRowSorter(rowSorter);
-        waitingTable.getSelectionModel().addListSelectionListener(event -> {
-            if (!event.getValueIsAdjusting()) {
-                showSelectedRequestDetails();
-            }
-        });
 
         add(createToolbar(), BorderLayout.NORTH);
         add(new JScrollPane(waitingTable), BorderLayout.CENTER);
-        add(createDetailsPanel(), BorderLayout.SOUTH);
 
         refreshTable();
     }
@@ -101,67 +85,20 @@ public class WaitingListPanel extends JPanel {
         return toolbar;
     }
 
-    private JPanel createDetailsPanel() {
-        JPanel detailsPanel = new JPanel(new GridBagLayout());
-        detailsPanel.setBackground(new Color(248, 249, 251));
-        detailsPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(220, 224, 230)),
-                BorderFactory.createEmptyBorder(10, 12, 10, 12)
-        ));
-
-        JLabel title = new JLabel("Waiting Request Details");
-        title.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
-        GridBagConstraints titleConstraints = new GridBagConstraints();
-        titleConstraints.gridx = 0;
-        titleConstraints.gridy = 0;
-        titleConstraints.gridwidth = 10;
-        titleConstraints.anchor = GridBagConstraints.WEST;
-        titleConstraints.insets = new Insets(0, 0, 8, 0);
-        detailsPanel.add(title, titleConstraints);
-
-        addDetailField(detailsPanel, "ISBN", isbnField, 0, 1);
-        addDetailField(detailsPanel, "Title", titleField, 2, 1);
-        addDetailField(detailsPanel, "Student", studentField, 4, 1);
-        addDetailField(detailsPanel, "Requested", requestDateField, 6, 1);
-        addDetailField(detailsPanel, "Priority", priorityField, 8, 1);
-
-        GridBagConstraints checkConstraints = new GridBagConstraints();
-        checkConstraints.gridx = 0;
-        checkConstraints.gridy = 2;
-        checkConstraints.gridwidth = 2;
-        checkConstraints.anchor = GridBagConstraints.WEST;
-        checkConstraints.insets = new Insets(8, 0, 0, 0);
-        graduatedBox.setBackground(new Color(248, 249, 251));
-        detailsPanel.add(graduatedBox, checkConstraints);
-
-        JLabel hint = new JLabel("New request: fill ISBN, Student, Requested (YYYY-MM-DD), Graduated, then Add Request.");
-        hint.setFont(new Font(Font.SANS_SERIF, Font.ITALIC, 11));
-        hint.setForeground(new Color(120, 120, 120));
-        GridBagConstraints hintConstraints = new GridBagConstraints();
-        hintConstraints.gridx = 2;
-        hintConstraints.gridy = 2;
-        hintConstraints.gridwidth = 8;
-        hintConstraints.anchor = GridBagConstraints.WEST;
-        hintConstraints.insets = new Insets(8, 0, 0, 0);
-        detailsPanel.add(hint, hintConstraints);
-
-        return detailsPanel;
-    }
-
-    private void addDetailField(JPanel panel, String label, JTextField field, int gridX, int gridY) {
+    private void addDialogField(JPanel panel, String label, JTextField field, int gridY) {
         GridBagConstraints labelConstraints = new GridBagConstraints();
-        labelConstraints.gridx = gridX;
+        labelConstraints.gridx = 0;
         labelConstraints.gridy = gridY;
         labelConstraints.anchor = GridBagConstraints.WEST;
-        labelConstraints.insets = new Insets(0, 0, 0, 4);
+        labelConstraints.insets = new Insets(0, 0, 8, 10);
         panel.add(new JLabel(label), labelConstraints);
 
         GridBagConstraints fieldConstraints = new GridBagConstraints();
-        fieldConstraints.gridx = gridX + 1;
+        fieldConstraints.gridx = 1;
         fieldConstraints.gridy = gridY;
         fieldConstraints.weightx = 1.0;
         fieldConstraints.fill = GridBagConstraints.HORIZONTAL;
-        fieldConstraints.insets = new Insets(0, 0, 0, 10);
+        fieldConstraints.insets = new Insets(0, 0, 8, 0);
         panel.add(field, fieldConstraints);
     }
 
@@ -228,21 +165,6 @@ public class WaitingListPanel extends JPanel {
         }
     }
 
-    private void showSelectedRequestDetails() {
-        WaitingRow row = getSelectedWaitingRow();
-        if (row == null) {
-            loadedRow = null;
-            return;
-        }
-        loadedRow = row;
-        isbnField.setText(String.valueOf(row.isbn));
-        titleField.setText(row.bookTitle);
-        studentField.setText(nullToEmpty(row.request.studentName));
-        requestDateField.setText(formatDate(row.request.requestDate));
-        priorityField.setText(String.valueOf(row.priority));
-        graduatedBox.setSelected(row.request.isGraduated);
-    }
-
     private WaitingRow getSelectedWaitingRow() {
         int selectedRow = waitingTable.getSelectedRow();
         if (selectedRow < 0) {
@@ -256,37 +178,22 @@ public class WaitingListPanel extends JPanel {
     }
 
     private void addRequest() {
-        int isbn;
-        try {
-            isbn = Integer.parseInt(isbnField.getText().trim());
-        } catch (NumberFormatException ex) {
-            showMessage("ISBN must be a number.");
-            return;
-        }
-        String student = studentField.getText().trim();
-        if (student.isEmpty()) {
-            showMessage("Enter a student name.");
-            return;
-        }
-        LocalDate requestDate;
-        try {
-            requestDate = LocalDate.parse(requestDateField.getText().trim());
-        } catch (DateTimeParseException ex) {
-            showMessage("Enter the requested date as YYYY-MM-DD.");
+        WaitingFormData data = showWaitingDialog("Add Request", null);
+        if (data == null) {
             return;
         }
 
-        String error = BorrowController.add_to_waitlist(isbn, student, graduatedBox.isSelected(), requestDate);
+        String error = BorrowController.add_to_waitlist(data.isbn, data.student, data.graduated, data.requestDate);
         if (error != null) {
             showMessage(error);
             return;
         }
-        clearDetails();
         refreshTable();
     }
 
     private void editSelectedRequest() {
-        if (loadedRow == null) {
+        WaitingRow row = getSelectedWaitingRow();
+        if (row == null) {
             showMessage("Select a waiting request first.");
             return;
         }
@@ -294,50 +201,151 @@ public class WaitingListPanel extends JPanel {
         // taken from the originally selected row rather than the text fields, since changing
         // either here would really mean "delete this request, add a different one" rather than
         // an edit of the same request.
-        LocalDate newRequestDate;
-        try {
-            newRequestDate = LocalDate.parse(requestDateField.getText().trim());
-        } catch (DateTimeParseException ex) {
-            showMessage("Enter the requested date as YYYY-MM-DD.");
+        WaitingFormData data = showWaitingDialog("Edit Request", row);
+        if (data == null) {
             return;
         }
 
         boolean updated = BorrowController.update_wait_request(
-                loadedRow.isbn, loadedRow.request.studentName, graduatedBox.isSelected(), newRequestDate);
+                row.isbn, row.request.studentName, data.graduated, data.requestDate);
         if (!updated) {
             showMessage("Could not find that request anymore - it may have already been processed.");
         }
-        clearDetails();
         refreshTable();
     }
 
     private void deleteSelectedRequest() {
-        if (loadedRow == null) {
+        WaitingRow row = getSelectedWaitingRow();
+        if (row == null) {
             showMessage("Select a waiting request first.");
             return;
         }
         int answer = JOptionPane.showConfirmDialog(
                 this,
-                "Remove " + loadedRow.request.studentName + " from the waiting list for this book?",
+                "Remove " + row.request.studentName + " from the waiting list for this book?",
                 "Confirm Delete",
                 JOptionPane.YES_NO_OPTION
         );
         if (answer != JOptionPane.YES_OPTION) {
             return;
         }
-        BorrowController.remove_wait_request(loadedRow.isbn, loadedRow.request.studentName);
-        clearDetails();
+        BorrowController.remove_wait_request(row.isbn, row.request.studentName);
         refreshTable();
     }
 
-    private void clearDetails() {
-        loadedRow = null;
-        isbnField.setText("");
-        titleField.setText("");
-        studentField.setText("");
-        requestDateField.setText("");
-        priorityField.setText("");
-        graduatedBox.setSelected(false);
+    private WaitingFormData showWaitingDialog(String title, WaitingRow row) {
+        JDialog dialog = createDialog(title);
+        JPanel form = createDialogPanel();
+
+        JTextField isbnField = new JTextField(18);
+        JTextField titleField = new JTextField(18);
+        JTextField studentField = new JTextField(18);
+        JTextField requestDateField = new JTextField(18);
+        JTextField priorityField = new JTextField(18);
+        JCheckBox graduatedBox = new JCheckBox("Graduated");
+        graduatedBox.setBackground(new Color(248, 249, 251));
+
+        if (row != null) {
+            isbnField.setText(String.valueOf(row.isbn));
+            titleField.setText(row.bookTitle);
+            studentField.setText(nullToEmpty(row.request.studentName));
+            requestDateField.setText(formatDate(row.request.requestDate));
+            priorityField.setText(String.valueOf(row.priority));
+            graduatedBox.setSelected(row.request.isGraduated);
+            isbnField.setEditable(false);
+            titleField.setEditable(false);
+            studentField.setEditable(false);
+            priorityField.setEditable(false);
+        }
+
+        addDialogField(form, "ISBN", isbnField, 0);
+        if (row != null) {
+            addDialogField(form, "Title", titleField, 1);
+        }
+        addDialogField(form, "Student", studentField, row == null ? 1 : 2);
+        if (row != null) {
+            addDialogField(form, "Requested", requestDateField, 3);
+        }
+        if (row != null) {
+            addDialogField(form, "Priority", priorityField, 4);
+        }
+
+        GridBagConstraints checkConstraints = new GridBagConstraints();
+        checkConstraints.gridx = 1;
+        checkConstraints.gridy = row == null ? 3 : 5;
+        checkConstraints.anchor = GridBagConstraints.WEST;
+        checkConstraints.insets = new Insets(0, 0, 8, 0);
+        form.add(graduatedBox, checkConstraints);
+
+        final WaitingFormData[] result = new WaitingFormData[1];
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        buttons.setBackground(new Color(248, 249, 251));
+        ModernButton saveButton = ModernButton.toolbar("Save");
+        ModernButton cancelButton = ModernButton.toolbar("Cancel");
+        saveButton.addActionListener(event -> {
+            WaitingFormData data = readWaitingFormData(isbnField, studentField, requestDateField, graduatedBox, row == null);
+            if (data != null) {
+                result[0] = data;
+                dialog.dispose();
+            }
+        });
+        cancelButton.addActionListener(event -> dialog.dispose());
+        buttons.add(saveButton);
+        buttons.add(cancelButton);
+
+        dialog.add(form, BorderLayout.CENTER);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+        return result[0];
+    }
+
+    private WaitingFormData readWaitingFormData(JTextField isbnField, JTextField studentField,
+            JTextField requestDateField, JCheckBox graduatedBox, boolean useCurrentDate) {
+        int isbn;
+        try {
+            isbn = Integer.parseInt(isbnField.getText().trim());
+        } catch (NumberFormatException ex) {
+            showMessage("ISBN must be a number.");
+            return null;
+        }
+        String student = studentField.getText().trim();
+        if (student.isEmpty()) {
+            showMessage("Enter a student name.");
+            return null;
+        }
+        if (useCurrentDate) {
+            return new WaitingFormData(isbn, student, LocalDate.now(), graduatedBox.isSelected());
+        }
+        LocalDate requestDate;
+        try {
+            requestDate = LocalDate.parse(requestDateField.getText().trim());
+        } catch (DateTimeParseException ex) {
+            showMessage("Enter the requested date as YYYY-MM-DD.");
+            return null;
+        }
+        return new WaitingFormData(isbn, student, requestDate, graduatedBox.isSelected());
+    }
+
+    private JDialog createDialog(String title) {
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        JDialog dialog = new JDialog(owner, title, java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout(0, 12));
+        dialog.setResizable(false);
+        dialog.getContentPane().setBackground(new Color(248, 249, 251));
+        dialog.getRootPane().setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
+        return dialog;
+    }
+
+    private JPanel createDialogPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(new Color(248, 249, 251));
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220, 224, 230)),
+                BorderFactory.createEmptyBorder(12, 12, 4, 12)
+        ));
+        return panel;
     }
 
     private String formatDate(LocalDate date) {
@@ -363,6 +371,20 @@ public class WaitingListPanel extends JPanel {
             this.bookTitle = bookTitle;
             this.request = request;
             this.priority = priority;
+        }
+    }
+
+    private static class WaitingFormData {
+        final int isbn;
+        final String student;
+        final LocalDate requestDate;
+        final boolean graduated;
+
+        WaitingFormData(int isbn, String student, LocalDate requestDate, boolean graduated) {
+            this.isbn = isbn;
+            this.student = student;
+            this.requestDate = requestDate;
+            this.graduated = graduated;
         }
     }
 }
