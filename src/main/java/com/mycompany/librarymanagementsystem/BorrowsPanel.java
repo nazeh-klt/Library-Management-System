@@ -201,31 +201,14 @@ public class BorrowsPanel extends JPanel {
             showMessage("This record was already returned on " + borrow.return_date + ".");
             return;
         }
-        BorrowController.return_book(borrow.id, this::promptForExpectedReturnDate);
-        refreshTable();
-    }
 
-    // Supplies the expected-return date for the next waiting student, if returning this book
-    // frees a copy for someone on the waiting list. Runs on the Swing event thread via a modal
-    // dialog rather than blocking on System.in.
-    private LocalDate promptForExpectedReturnDate(String studentName) {
-        while (true) {
-            String input = JOptionPane.showInputDialog(
-                    this,
-                    "A copy just freed up for " + studentName + " from the waiting list.\n"
-                            + "Enter their expected return date (YYYY-MM-DD), or Cancel to leave them waiting:",
-                    "Assign Waiting Book",
-                    JOptionPane.QUESTION_MESSAGE
-            );
-            if (input == null) {
-                return null;
-            }
-            try {
-                return LocalDate.parse(input.trim());
-            } catch (DateTimeParseException ex) {
-                JOptionPane.showMessageDialog(this, "Enter a valid date as YYYY-MM-DD.");
-            }
+        boolean success = BorrowController.return_book(borrow.id);
+
+        if (success) {
+            showMessage("Book returned successfully. The table will now update.");
         }
+
+        refreshTable();
     }
 
     private void deleteSelectedBorrow() {

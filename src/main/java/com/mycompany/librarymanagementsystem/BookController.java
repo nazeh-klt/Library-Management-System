@@ -2,7 +2,7 @@ package com.mycompany.librarymanagementsystem;
 
 public class BookController {
     static BookNode root = null;
-    //static BookNode AVLroot = null;
+
     public static void add_book(int ISBN, int copy, String title, String author, String category) {
         root = add_book_to_bst(root, ISBN, copy, title, author, category);
     }
@@ -12,9 +12,6 @@ public class BookController {
     public static void delete_book(int ISBN) {
         root = remove_book_from_library_bst(root, ISBN);
     }
-
-    // Modify copy count directly without touching tree structure. Rejects negative values.
-    // Does NOT check against active borrows - see BorrowController.can_reduce_copies for that.
     public static boolean update_copy_count(int ISBN, int newCount) {
         if (newCount < 0) {
             return false;

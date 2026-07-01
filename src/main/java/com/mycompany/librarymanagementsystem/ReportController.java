@@ -11,9 +11,7 @@ public class ReportController {
         inOrderBookTraversal(node.right, books);
     }
 
-    // BUG: This report depends on BorrowController.borrowed_id_by_ISBN, which is maintained by
-    // borrow_book/return_book flows that are currently unsafe for the GUI. It can also throw if
-    // an ISBN list contains only ids missing from borrow_log.
+    
     public String getMostBorrowedBooksReport() {
         if (BorrowController.borrowed_id_by_ISBN.isEmpty()) {
             return "No books have been borrowed yet.";
@@ -40,8 +38,7 @@ public class ReportController {
                "Total Borrows: " + maxCount;
     }
 
-    // BUG: This report depends on the same borrow indexes as getMostBorrowedBooksReport, so it can
-    // be inaccurate when borrow records and indexes are out of sync.
+   
     public String getMostReadAuthorReport() {
         if (BorrowController.borrowed_id_by_ISBN.isEmpty()) {
             return "No books have been borrowed yet.";

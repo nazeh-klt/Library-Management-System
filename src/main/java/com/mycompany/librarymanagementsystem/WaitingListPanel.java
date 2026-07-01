@@ -183,7 +183,7 @@ public class WaitingListPanel extends JPanel {
             return;
         }
 
-        String error = BorrowController.add_to_waitlist(data.isbn, data.student, data.graduated, data.requestDate);
+        String error = BorrowController.add_to_waitlist(data.isbn, data.student, data.graduated);
         if (error != null) {
             showMessage(error);
             return;

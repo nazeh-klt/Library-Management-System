@@ -1,25 +1,17 @@
 package com.mycompany.librarymanagementsystem;
 
 public class AVLBookController {
-
     static BookNode root = null;
 
     public static void add_avl_book(int ISBN, int copy, String title, String author, String category) {
         root = add_to_avl(root, ISBN, copy, title, author, category);
     }
-
     public static void delete_avl_book(int ISBN) {
         root = remove_book_from_library(root, ISBN);
     }
-    
     public static BookNode search_for_book(int ISBN) {
         return search_for_book_avl(root, ISBN);
     }
-
-    // Modify copy count directly without touching tree structure (copy count is not part of
-    // the ordering key, so this cannot desynchronize the tree). Rejects negative values.
-    // Does NOT check against active borrows - that check needs BorrowController's borrow_log,
-    // so it belongs one layer up (see BorrowController.can_reduce_copies).
     public static boolean update_copy_count(int ISBN, int newCount) {
         if (newCount < 0) {
             return false;
@@ -31,7 +23,6 @@ public class AVLBookController {
         node.b.copy = newCount;
         return true;
     }
-    
     public static void print(){
         print(root);
     }
@@ -43,21 +34,18 @@ public class AVLBookController {
         System.out.println(root.b.ISBN);
         print(root.right);
     }
-
     private static int height(BookNode n) {
         if (n == null) {
             return 0;
         }
         return n.height;
     }
-
     private static int getBalance(BookNode n) {
         if (n == null) {
             return 0;
         }
         return height(n.left) - height(n.right);
     }
-
     private static BookNode rightRotate(BookNode y) {
         BookNode x = y.left;
         BookNode T2 = x.right;
@@ -67,7 +55,6 @@ public class AVLBookController {
         x.height = Math.max(height(x.left), height(x.right)) + 1;
         return x;
     }
-
     private static BookNode leftRotate(BookNode x) {
         BookNode y = x.right;
         BookNode T2 = y.left;
@@ -113,7 +100,6 @@ public class AVLBookController {
 
         return n;
     }
-    
     private static BookNode search_for_book_avl(BookNode root, int ISBN) {
         if (root == null) {
             return null;
@@ -128,7 +114,6 @@ public class AVLBookController {
 
         return search_for_book_avl(root.left, ISBN);
     }
-
     private static BookNode getLeftMost(BookNode root) {
         BookNode current = root;
         while (current.left != null) {
@@ -136,9 +121,6 @@ public class AVLBookController {
         }
         return current;
     }
-
-    // Removes the book node entirely (a full delete of the title from the library, not a
-    // "return one copy" operation - use update_copy_count for adjusting copy counts).
     private static BookNode remove_book_from_library(BookNode root, int ISBN) {
         if (root == null) {
             return root;
