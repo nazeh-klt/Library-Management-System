@@ -80,24 +80,20 @@ public class AVLBookController {
         n.height = 1 + Math.max(height(n.left), height(n.right));
         int balance = getBalance(n);
 
-        if (balance > 1 && ISBN < n.left.b.ISBN) {
-            return rightRotate(n);
+        if (balance > 1 && getBalance(root.left) >= 0) {
+            return rightRotate(root);
         }
-
-        if (balance < -1 && ISBN > n.right.b.ISBN) {
-            return leftRotate(n);
+        if (balance > 1 && getBalance(root.left) < 0) {
+            root.left = leftRotate(root.left);
+            return rightRotate(root);
         }
-
-        if (balance > 1 && ISBN > n.left.b.ISBN) {
-            n.left = leftRotate(n.left);
-            return rightRotate(n);
+        if (balance < -1 && getBalance(root.right) <= 0) {
+            return leftRotate(root);
         }
-
-        if (balance < -1 && ISBN < n.right.b.ISBN) {
-            n.right = rightRotate(n.right);
-            return leftRotate(n);
+        if (balance < -1 && getBalance(root.right) > 0) {
+            root.right = rightRotate(root.right);
+            return leftRotate(root);
         }
-
         return n;
     }
     private static BookNode search_for_book_avl(BookNode root, int ISBN) {
