@@ -51,6 +51,13 @@ public class BooksPanel extends JPanel {
         add(new JScrollPane(booksTable), BorderLayout.CENTER);
 
         refreshTable();
+        
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                refreshTable(); // Re-runs your getWaitingRows() data transformation loop
+            }
+        });
     }
 
     private JPanel createToolbar() {
@@ -183,6 +190,7 @@ public class BooksPanel extends JPanel {
             selected.b.author = data.author;
             selected.b.category = data.category;
             AVLBookController.update_copy_count(data.isbn, data.copies);
+            BorrowController.processWaitingList(data.isbn);
         } else {
             // ISBN changed: this is really "delete old entry, add new one" rather than an
             // in-place edit, so it's blocked if the old ISBN has active loans out - see

@@ -40,15 +40,18 @@ public class ReportsPanel extends JPanel {
         ModernButton availableBooksButton = ModernButton.toolbar("Available Books");
         ModernButton refreshButton = ModernButton.toolbar("Refresh");
         ModernButton clearButton = ModernButton.toolbar("Clear");
+        ModernButton overdueButton = ModernButton.toolbar("Overdue Loans");
 
         mostBorrowedButton.addActionListener(event -> showMostBorrowedReport());
         mostReadAuthorsButton.addActionListener(event -> showMostReadAuthorReport());
+        overdueButton.addActionListener(event -> showOverdueReport());
         availableBooksButton.addActionListener(event -> showAvailableBooksReport());
         refreshButton.addActionListener(event -> showAvailableBooksReport());
         clearButton.addActionListener(event -> reportArea.setText(""));
 
         toolbar.add(mostBorrowedButton);
         toolbar.add(mostReadAuthorsButton);
+        toolbar.add(overdueButton);
         toolbar.add(availableBooksButton);
         toolbar.add(new JLabel(" "));
         toolbar.add(refreshButton);
@@ -73,6 +76,11 @@ public class ReportsPanel extends JPanel {
         reportArea.setCaretPosition(0);
     }
 
+    private void showOverdueReport() {
+        reportArea.setText(reportController.getOverdueLoansReport());
+        reportArea.setCaretPosition(0);
+    }
+    
     private void showWelcomeText() {
         reportArea.setText("Select a report from the toolbar.");
     }

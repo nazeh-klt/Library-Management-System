@@ -7,7 +7,6 @@ import java.util.function.Function;
 public class BorrowController {
 
     final static int max_borrowings = 5;
-    private static final Scanner scanner = new Scanner(System.in);
     static HashMap<Integer, Borrow> borrow_log = new HashMap();
     static HashMap<Integer, ArrayList<Integer>> borrowed_id_by_ISBN = new HashMap();
     static HashMap<String, ArrayList<Integer>> borrowed_id_by_name = new HashMap();
@@ -178,6 +177,58 @@ public class BorrowController {
         return true;
     }
     
+    public static String update_borrow(int recordId, int newISBN, String newStudentName, LocalDate newExpectedReturn, boolean newGraduated) {
+        Borrow borrow = borrow_log.get(recordId);
+        if (borrow == null) {
+            return "No borrow record found with that ID.";
+        }
+        if (borrow.return_date != null) {
+            return "This record was already returned and can't be edited.";
+        }
+        if (newStudentName == null || newStudentName.isBlank()) {
+            return "Enter a student name.";
+        }
+        BookNode node = AVLBookController.search_for_book(newISBN);
+        if (node == null) {
+            return "No book with that ISBN exists.";
+        }
+
+        int oldISBN = borrow.book.ISBN;
+        String oldStudentName = borrow.student_name;
+        LocalDate oldExpectedReturn = borrow.expected_return;
+
+        ArrayList<Integer> oldIsbnList = borrowed_id_by_ISBN.get(oldISBN);
+        if (oldIsbnList != null) {
+            oldIsbnList.remove(Integer.valueOf(recordId));
+        }
+        ArrayList<Integer> oldNameList = borrowed_id_by_name.get(oldStudentName);
+        if (oldNameList != null) {
+            oldNameList.remove(Integer.valueOf(recordId));
+        }
+        expected_return_index.root = AVLExpectedReturn.deleteRecord(expected_return_index.root, oldExpectedReturn, recordId);
+
+        borrow.book = node.b;
+        borrow.student_name = newStudentName;
+        borrow.expected_return = newExpectedReturn;
+        borrow.is_graduated = newGraduated;
+
+        ArrayList<Integer> newIsbnList = borrowed_id_by_ISBN.get(newISBN);
+        if (newIsbnList == null) {
+            newIsbnList = new ArrayList<>();
+            borrowed_id_by_ISBN.put(newISBN, newIsbnList);
+        }
+        newIsbnList.add(recordId);
+
+        ArrayList<Integer> newNameList = borrowed_id_by_name.get(newStudentName);
+        if (newNameList == null) {
+            newNameList = new ArrayList<>();
+            borrowed_id_by_name.put(newStudentName, newNameList);
+        }
+        newNameList.add(recordId);
+
+        expected_return_index.root = AVLExpectedReturn.insert(expected_return_index.root, newExpectedReturn, recordId);
+        return null;
+    }
     public static boolean delete_borrow_record(int recordId) {
         Borrow borrow = borrow_log.remove(recordId);
         if (borrow == null) {
@@ -191,10 +242,11 @@ public class BorrowController {
         if (nameList != null) {
             nameList.remove(Integer.valueOf(recordId));
         }
+        expected_return_index.root = AVLExpectedReturn.deleteRecord(expected_return_index.root, borrow.expected_return, recordId);
         return true;
     }
     
-    ArrayList<Borrow> overdue() {
+    public static ArrayList<Borrow> overdue() {
         ArrayList<Integer> ids = expected_return_index.find_less_than(expected_return_index.root, LocalDate.now());
         ArrayList<Borrow> borrows = new ArrayList<Borrow>();
         for (var id : ids) {
@@ -205,7 +257,7 @@ public class BorrowController {
         }
         return borrows;
     }
-    ArrayList<Borrow> filter_by_student_name(String name) {
+    public static ArrayList<Borrow> filter_by_student_name(String name) {
         ArrayList<Integer> ids = borrowed_id_by_name.get(name);
         if (ids == null) {
             return new ArrayList<>();
@@ -219,7 +271,7 @@ public class BorrowController {
         return borrows;
 
     }
-    ArrayList<Borrow> filter_by_ISBN(int isbn) {
+    public static ArrayList<Borrow> filter_by_ISBN(int isbn) {
         ArrayList<Integer> ids = borrowed_id_by_ISBN.get(isbn);
         if (ids == null) {
             return new ArrayList<>();
@@ -236,14 +288,18 @@ public class BorrowController {
 
     public static String add_to_waitlist(int ISBN, String studentName, boolean isGraduated) {
         if (AVLBookController.search_for_book(ISBN) == null) {
+            System.out.println("No book with that ISBN exists.");
             return "No book with that ISBN exists.";
         }
         if (check_available_book_by_ISBN(ISBN)) {
+            System.out.println("This book currently has copies available - borrow it directly instead of waiting.");
             return "This book currently has copies available - borrow it directly instead of waiting.";
         }
         if (!can_borrow_more(studentName)) {
+            System.out.println(studentName + " already has the maximum number of active borrows and can't join the waiting list.");
             return studentName + " already has the maximum number of active borrows and can't join the waiting list.";
         }
+
         MaxPriorityQueue heap = get_waitlist(ISBN);
         for (BookQueue r : heap.getElements()) {
             if (r.studentName.equals(studentName)) {
@@ -259,49 +315,48 @@ public class BorrowController {
         MaxPriorityQueue heap = wait_requests_queue_by_ISBN.get(ISBN);
         if (heap == null) {
             heap = new MaxPriorityQueue();
+            wait_requests_queue_by_ISBN.put(ISBN, heap);
         }
         return heap;
     }
 
-    private static void processWaitingList(int ISBN) {
+    public static void processWaitingList(int ISBN) {
         MaxPriorityQueue queue = wait_requests_queue_by_ISBN.get(ISBN);
-
         if (queue == null || queue.isEmpty()) {
             return;
         }
-
         BookNode node = AVLBookController.search_for_book(ISBN);
         if (node == null) {
             return;
         }
 
-        if (check_available_book_by_ISBN(ISBN)) {
-            // Extract the highest-priority waiting student record
-            BookQueue nextStudent = queue.extractMax();
+        while (check_available_book_by_ISBN(ISBN) && !queue.isEmpty()) {
+            ArrayList<BookQueue> waiters = queue.getElements();
+            waiters.sort((first, second) -> {
+                if (MaxPriorityQueue.hasHigherPriority(first, second)) return -1;
+                if (MaxPriorityQueue.hasHigherPriority(second, first)) return 1;
+                return 0;
+            });
 
-            // Compute the standard 14-day allocation window from today
+            BookQueue eligible = null;
+            for (BookQueue candidate : waiters) {
+                if (can_borrow_more(candidate.studentName)) {
+                    eligible = candidate;
+                    break;
+                }
+            }
+            if (eligible == null) {
+                // Everyone left on the list is currently at their borrow limit - stop here rather
+                // than removing (and losing) someone who isn't actually eligible yet.
+                return;
+            }
+
+            queue.remove(eligible);
             LocalDate automatedExpectedReturn = LocalDate.now().plusDays(14);
-
-            // Execute borrow_book matching your exact five-parameter signature
-            borrow_book(
-                node.b, 
-                nextStudent.studentName, 
-                nextStudent.requestDate, 
-                automatedExpectedReturn, 
-                nextStudent.isGraduated
-            );
-
-            System.out.println("WAITLIST PROMOTION: " + nextStudent.studentName + 
-                               " automatically assigned a copy of \"" + node.b.title + "\".");
+            borrow_book(node.b, eligible.studentName, eligible.requestDate, automatedExpectedReturn, eligible.isGraduated);
+            System.out.println("WAITLIST PROMOTION: " + eligible.studentName
+                    + " automatically assigned a copy of \"" + node.b.title + "\".");
         }
-    }
-    private static LocalDate readExpectedReturnDateConsole(String studentName) {
-        System.out.println("Enter expected return date for " + studentName + " (day month year):");
-        int day = scanner.nextInt();
-        int month = scanner.nextInt();
-        int year = scanner.nextInt();
-        scanner.nextLine();
-        return LocalDate.of(year, month, day);
     }
 
     public static void remove_wait_request(int ISBN, String studentName) {

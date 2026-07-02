@@ -53,6 +53,13 @@ public class WaitingListPanel extends JPanel {
         add(new JScrollPane(waitingTable), BorderLayout.CENTER);
 
         refreshTable();
+        
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                refreshTable(); // Re-runs your getWaitingRows() data transformation loop
+            }
+        });
     }
 
     private JPanel createToolbar() {

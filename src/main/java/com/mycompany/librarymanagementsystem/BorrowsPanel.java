@@ -51,6 +51,13 @@ public class BorrowsPanel extends JPanel {
         add(new JScrollPane(borrowsTable), BorderLayout.CENTER);
 
         refreshTable();
+        
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                refreshTable(); // Re-runs your getWaitingRows() data transformation loop
+            }
+        });
     }
 
     private JPanel createToolbar() {
@@ -184,11 +191,20 @@ public class BorrowsPanel extends JPanel {
             showMessage("Select a borrow record first.");
             return;
         }
+        if (borrow.return_date != null) {
+            showMessage("This record was already returned and can't be edited.");
+            return;
+        }
         BorrowFormData data = showBorrowDialog("Edit Borrow", borrow, true);
         if (data == null) {
             return;
         }
-        showMessage("Not yet available: editing borrow records isn't safe because the expected-return date index has no delete/update operation.");
+        String error = BorrowController.update_borrow(borrow.id, data.isbn, data.student, data.expectedReturn, data.graduated);
+        if (error != null) {
+            showMessage(error);
+            return;
+        }
+        refreshTable();
     }
 
     private void returnSelectedBorrow() {

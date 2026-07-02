@@ -110,4 +110,26 @@ public class ReportController {
 
         return sb.toString();
     }
+    
+    // The only report that actually queries the expected-return date index (AVLExpectedReturn)
+    // rather than just the borrow hashmaps - find_less_than walks the tree once instead of
+    // scanning every borrow record and comparing dates one by one.
+    public String getOverdueLoansReport() {
+        ArrayList<Borrow> overdue = BorrowController.overdue();
+        if (overdue.isEmpty()) {
+            return "No overdue loans.";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== OVERDUE LOANS ===\n");
+        for (Borrow b : overdue) {
+            sb.append(b.student_name)
+              .append(" | ").append(b.book == null ? "" : b.book.title)
+              .append(" | ISBN: ").append(b.book == null ? "" : b.book.ISBN)
+              .append(" | Was due: ").append(b.expected_return)
+              .append("\n");
+        }
+        sb.append("Total Overdue: ").append(overdue.size());
+        return sb.toString();
+    }
 }

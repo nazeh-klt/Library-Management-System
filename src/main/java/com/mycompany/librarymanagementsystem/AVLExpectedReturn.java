@@ -103,6 +103,19 @@ class AVLExpectedReturn {
         return root;
     }
     
+    static Node deleteRecord(Node root, LocalDate date, int recordId) {
+    Node node = search(root, date);
+    if (node == null) {
+        return root;
+    }
+    node.recordIds.remove(Integer.valueOf(recordId));
+    if (node.recordIds.isEmpty()) {
+        return delete(root, date);
+    }
+    return root;
+}
+    
+    
     static Node delete(Node root, LocalDate exp){
         if(root == null)
             return root;
