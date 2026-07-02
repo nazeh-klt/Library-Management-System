@@ -170,10 +170,7 @@ public class BorrowController {
         borrow.return_date = LocalDate.now();
         System.out.println("SUCCESS: Book returned for Record ID: " + recordId);
 
-        // Maintain collection sync and trigger waitlist promotion rules
-        remove_wait_request(borrow.book.ISBN, borrow.student_name);
         processWaitingList(borrow.book.ISBN);
-
         return true;
     }
     
@@ -299,7 +296,14 @@ public class BorrowController {
             System.out.println(studentName + " already has the maximum number of active borrows and can't join the waiting list.");
             return studentName + " already has the maximum number of active borrows and can't join the waiting list.";
         }
-
+        if (borrowed_id_by_name.get(studentName) != null){
+            for (Integer id : borrowed_id_by_name.get(studentName)){
+                if (borrow_log.get(id).return_date == null){
+                    System.out.println("You cant request a book you already have");
+                    return "You cant request a book you already have borrowed";
+                }
+            }
+        }        
         MaxPriorityQueue heap = get_waitlist(ISBN);
         for (BookQueue r : heap.getElements()) {
             if (r.studentName.equals(studentName)) {
@@ -331,27 +335,7 @@ public class BorrowController {
         }
 
         while (check_available_book_by_ISBN(ISBN) && !queue.isEmpty()) {
-            ArrayList<BookQueue> waiters = queue.getElements();
-            waiters.sort((first, second) -> {
-                if (MaxPriorityQueue.hasHigherPriority(first, second)) return -1;
-                if (MaxPriorityQueue.hasHigherPriority(second, first)) return 1;
-                return 0;
-            });
-
-            BookQueue eligible = null;
-            for (BookQueue candidate : waiters) {
-                if (can_borrow_more(candidate.studentName)) {
-                    eligible = candidate;
-                    break;
-                }
-            }
-            if (eligible == null) {
-                // Everyone left on the list is currently at their borrow limit - stop here rather
-                // than removing (and losing) someone who isn't actually eligible yet.
-                return;
-            }
-
-            queue.remove(eligible);
+            BookQueue eligible = queue.extractMax();
             LocalDate automatedExpectedReturn = LocalDate.now().plusDays(14);
             borrow_book(node.b, eligible.studentName, eligible.requestDate, automatedExpectedReturn, eligible.isGraduated);
             System.out.println("WAITLIST PROMOTION: " + eligible.studentName
