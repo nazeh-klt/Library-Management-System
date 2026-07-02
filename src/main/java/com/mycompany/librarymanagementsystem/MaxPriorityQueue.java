@@ -20,20 +20,18 @@ public class MaxPriorityQueue {
         bubbleUp(heap.size() - 1);
     }
 
-    // Just get the top priority
     public BookQueue peekMax() {
         if (isEmpty()) throw new NoSuchElementException("Heap is empty");
         return heap.get(0);
     }
 
-    // get and remove the top priority
     public BookQueue extractMax() {
         if (isEmpty()) throw new NoSuchElementException("Heap is empty");
         BookQueue max = heap.get(0);
         BookQueue last = heap.remove(heap.size() - 1);
         if (!heap.isEmpty()) {
             heap.set(0, last);
-            bubbleDown(0);    // since we replace the current element with the last one we need to bubble it down to retain the heap property
+            bubbleDown(0);           
         }
         return max;
     }
@@ -97,17 +95,12 @@ public class MaxPriorityQueue {
         heap.set(j, temp);
     }
 
-    // Returns a copy of the heap contents, not the live backing list. Previously this returned
-    // `heap` directly, which let callers sort or reorder it - BorrowController.processWaitingList
-    // was doing exactly that (Collections.sort on the returned list), which silently broke the
-    // heap's internal invariant every time it ran. Copying costs O(n) but the waitlist per book
-    // is expected to be small, and this is only called when processing waits or duplicate-checking.
+    
     public ArrayList<BookQueue> getElements() {
         return new ArrayList<>(heap);
     }
     
     public static boolean hasHigherPriority(BookQueue r1, BookQueue r2){
-       // we compare the staatus of the student that applied request 1 to our top priority to know how to place him
         if(r1.isGraduated != r2.isGraduated){
             return r1.isGraduated;
         }

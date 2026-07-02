@@ -3,7 +3,7 @@ package com.mycompany.librarymanagementsystem;
 
 public class Book {
     int ISBN;
-    int copy; // represents the number of book of a certain ISBN
+    int copy; 
     String title;
     String author; 
     String category;    

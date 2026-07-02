@@ -78,7 +78,6 @@ public class BookController {
         } else if (root.b.ISBN < ISBN) {
             root.right = remove_book_from_library_bst(root.right, ISBN);
         } else {
-            // Node with 0 or 1 child
             if (root.left == null) {
                 
                 return root.right;
@@ -87,12 +86,7 @@ public class BookController {
                 return root.left;
             }
 
-            // Node with 2 children.
-            // Re-point this node at the successor's Book object rather than copying its fields
-            // into the existing Book object. If any Borrow record already holds a reference to
-            // the Book that used to live at this node, field-copying would silently corrupt that
-            // record's data (its title/author would change to the successor's). Swapping the
-            // reference instead leaves both Book objects, and everything pointing at them, intact.
+            
             BookNode current = getLeftMost(root.right);
             root.b = current.b;
             root.right = remove_book_from_library_bst(root.right, current.b.ISBN);

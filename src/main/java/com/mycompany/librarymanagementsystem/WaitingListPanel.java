@@ -57,7 +57,7 @@ public class WaitingListPanel extends JPanel {
         this.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentShown(java.awt.event.ComponentEvent e) {
-                refreshTable(); // Re-runs your getWaitingRows() data transformation loop
+                refreshTable();
             }
         });
     }
@@ -204,10 +204,7 @@ public class WaitingListPanel extends JPanel {
             showMessage("Select a waiting request first.");
             return;
         }
-        // The (ISBN, student) pair identifies which request to update; those two fields are
-        // taken from the originally selected row rather than the text fields, since changing
-        // either here would really mean "delete this request, add a different one" rather than
-        // an edit of the same request.
+       
         WaitingFormData data = showWaitingDialog("Edit Request", row);
         if (data == null) {
             return;

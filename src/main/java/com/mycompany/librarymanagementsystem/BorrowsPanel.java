@@ -55,7 +55,7 @@ public class BorrowsPanel extends JPanel {
         this.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentShown(java.awt.event.ComponentEvent e) {
-                refreshTable(); // Re-runs your getWaitingRows() data transformation loop
+                refreshTable(); 
             }
         });
     }
@@ -73,11 +73,7 @@ public class BorrowsPanel extends JPanel {
 
         borrowButton.addActionListener(event -> borrowBook());
         returnButton.addActionListener(event -> returnSelectedBorrow());
-        // Editing an existing borrow record's dates in place is left disabled: the expected-return
-        // date is also a key in AVLExpectedReturn's date index, and that structure has no delete/
-        // update operation, only insert. An in-place edit would leave a stale entry in that index
-        // pointing at the same recordId under the old date. Fixing this properly means adding a
-        // delete operation to AVLExpectedReturn first, which is a separate piece of work.
+        
         editButton.addActionListener(event -> editSelectedBorrow());
         deleteButton.addActionListener(event -> deleteSelectedBorrow());
         searchButton.addActionListener(event -> applySearchFilter());

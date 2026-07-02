@@ -23,10 +23,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
-// Uses AVLBookController exclusively (not BookController's plain BST). AVLBookController is the
-// balanced structure the assignment asks for, and it's the one BorrowController.check_available_book_by_ISBN
-// already trusts, so keeping a single source of truth for books avoids the "book exists in one
-// tree but not the other" bug that used to block Borrow/Return.
+
 public class BooksPanel extends JPanel {
     private final JTextField searchField = new JTextField(18);
     private final DefaultTableModel tableModel = new DefaultTableModel(
@@ -55,7 +52,7 @@ public class BooksPanel extends JPanel {
         this.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentShown(java.awt.event.ComponentEvent e) {
-                refreshTable(); // Re-runs your getWaitingRows() data transformation loop
+                refreshTable(); 
             }
         });
     }
@@ -179,9 +176,7 @@ public class BooksPanel extends JPanel {
         }
 
         if (data.isbn == oldIsbn) {
-            // ISBN unchanged: copy count is validated against active borrows before being applied,
-            // since dropping it below the number of copies currently checked out would make
-            // check_available_book_by_ISBN report a negative number of free copies as "available".
+            
             if (!BorrowController.can_reduce_copies(data.isbn, data.copies)) {
                 showMessage("Can't set copies below the number currently on loan for this ISBN.");
                 return;
@@ -192,9 +187,7 @@ public class BooksPanel extends JPanel {
             AVLBookController.update_copy_count(data.isbn, data.copies);
             BorrowController.processWaitingList(data.isbn);
         } else {
-            // ISBN changed: this is really "delete old entry, add new one" rather than an
-            // in-place edit, so it's blocked if the old ISBN has active loans out - see
-            // deleteSelectedBook for the same reasoning.
+            
             if (BorrowController.has_active_borrows(oldIsbn)) {
                 showMessage("Can't change the ISBN of a book that has active loans. Wait until all copies are returned.");
                 return;

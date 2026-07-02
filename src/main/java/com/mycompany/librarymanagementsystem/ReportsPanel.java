@@ -70,8 +70,7 @@ public class ReportsPanel extends JPanel {
     }
 
     private void showAvailableBooksReport() {
-        // AVLBookController.root, not BookController.root - the AVL tree is the single book
-        // store the rest of the app (BooksPanel, BorrowController) now reads and writes.
+       
         reportArea.setText(reportController.getAvailableBooksReport(AVLBookController.root));
         reportArea.setCaretPosition(0);
     }
